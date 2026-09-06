@@ -47,27 +47,10 @@ function SettingsPanel() {
 }
 
 export default {
-	start() {
-		const members = metro.findStore('GuildMember');
-		const channels = metro.findByProps('getChannel');
-		const rows = metro.findByProps('generateMessageRowData');
-		const invites = metro.findByProps('useInvitesDisabledPermission');
+    start() {
+        console.log("[Show Hidden Things] loaded");
+    },
 
-		if (members && channels && typeof rows?.generateMessageRowData === 'function') {
-			unpatches.push(patcher.after(rows, 'generateMessageRowData', (ctx) => {
-				try {
-					applyTimeoutIcon(ctx.result?.message, ctx.args[0]?.message, members, channels);
-				} catch { }
-			}));
-		}
-
-		if (typeof invites?.useInvitesDisabledPermission === 'function') {
-			unpatches.push(patcher.after(invites, 'useInvitesDisabledPermission', (ctx) => {
-				if (enabled('showInvitesPaused')) ctx.result = true;
-			}));
-		}
-
-	},
 	stop() {
 		for (const unpatch of unpatches) unpatch();
 		unpatches = [];
