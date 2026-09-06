@@ -4,6 +4,7 @@ Compatibility rebuilds for current Unbound. Each plugin currently installs and e
 
 | Plugin | Version | Install URL |
 | --- | --- | --- |
+| Safe Empty Test | 1.0.0 | https://raw.githubusercontent.com/Artkos078/unbound-plugins/main/plugins/safe-empty-test/dist/manifest.json |
 | Aussie Mode | 3.0.0 | https://raw.githubusercontent.com/Artkos078/unbound-plugins/main/plugins/aussie-mode/dist/manifest.json |
 | Aussie Speech | 3.0.0 | https://raw.githubusercontent.com/Artkos078/unbound-plugins/main/plugins/aussie-speech/dist/manifest.json |
 | Clear URLs | 3.0.0 | https://raw.githubusercontent.com/Artkos078/unbound-plugins/main/plugins/clear-urls/dist/manifest.json |
