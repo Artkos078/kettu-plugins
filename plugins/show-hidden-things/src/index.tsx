@@ -72,5 +72,5 @@ export default {
 		for (const unpatch of unpatches) unpatch();
 		unpatches = [];
 	},
-	getSettingsPanel: () => <SettingsPanel />,
+	getSettingsPanel: () => null,
 };

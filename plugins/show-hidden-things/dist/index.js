@@ -1,114 +1,6 @@
 ({__plugin:null,__load(){if(this.__plugin)return this.__plugin;this.__plugin=(function () {
 'use strict';
-var SETTINGS_SPACING = {
-    outer: 16,
-    section: 24,
-    card: 16,
-    rowGap: 10,
-    touchTarget: 48
-};
-function getSettingsColors() {
-    var _ref;
-    var _metro_common_Theme;
-    var colors = (_ref = (_metro_common_Theme = window.unbound.metro.common.Theme) === null || _metro_common_Theme === void 0 ? void 0 : _metro_common_Theme.colors) !== null && _ref !== void 0 ? _ref : {};
-    var color = function color(key, fallback) {
-        return typeof colors[key] === 'string' ? colors[key] : fallback;
-    };
-    return {
-        page: color('BACKGROUND_MOBILE_PRIMARY', color('BACKGROUND_PRIMARY', '#111214')),
-        surface: color('BACKGROUND_SECONDARY', '#1e1f22'),
-        input: color('BACKGROUND_TERTIARY', '#111214'),
-        border: color('BACKGROUND_MODIFIER_ACCENT', '#4e5058'),
-        text: color('TEXT_NORMAL', '#f2f3f5'),
-        muted: color('TEXT_MUTED', '#b5bac1'),
-        accent: color('BRAND_500', '#5865f2'),
-        danger: color('RED_400', '#ed4245')
-    };
-}
-function SettingsScrollView(param) {
-    var children = param.children;
-    var ReactNative = window.unbound.metro.common.ReactNative;
-    var colors = getSettingsColors();
-    return /*#__PURE__*/ React.createElement(ReactNative.ScrollView, {
-        contentContainerStyle: {
-            backgroundColor: colors.page,
-            gap: SETTINGS_SPACING.section,
-            padding: SETTINGS_SPACING.outer,
-            paddingBottom: 32
-        },
-        keyboardShouldPersistTaps: "handled"
-    }, children);
-}
-function SettingsSection(param) {
-    var title = param.title, children = param.children;
-    var ReactNative = window.unbound.metro.common.ReactNative;
-    var colors = getSettingsColors();
-    return /*#__PURE__*/ React.createElement(ReactNative.View, {
-        style: {
-            gap: SETTINGS_SPACING.rowGap
-        }
-    }, /*#__PURE__*/ React.createElement(ReactNative.Text, {
-        style: {
-            color: colors.muted,
-            fontSize: 13,
-            fontWeight: '800',
-            letterSpacing: 0.5,
-            paddingHorizontal: 4,
-            textTransform: 'uppercase'
-        }
-    }, title), /*#__PURE__*/ React.createElement(ReactNative.View, {
-        style: {
-            gap: SETTINGS_SPACING.rowGap
-        }
-    }, children));
-}
-function SettingsCard(param) {
-    var children = param.children;
-    var ReactNative = window.unbound.metro.common.ReactNative;
-    var colors = getSettingsColors();
-    return /*#__PURE__*/ React.createElement(ReactNative.View, {
-        style: {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            borderRadius: 14,
-            borderWidth: 1,
-            padding: SETTINGS_SPACING.card
-        }
-    }, children);
-}
-function SettingsSwitchRow(param) {
-    var label = param.label, description = param.description, value = param.value, onValueChange = param.onValueChange;
-    var ReactNative = window.unbound.metro.common.ReactNative;
-    var colors = getSettingsColors();
-    return /*#__PURE__*/ React.createElement(SettingsCard, null, /*#__PURE__*/ React.createElement(ReactNative.View, {
-        style: {
-            alignItems: 'center',
-            flexDirection: 'row',
-            gap: 12,
-            minHeight: SETTINGS_SPACING.touchTarget
-        }
-    }, /*#__PURE__*/ React.createElement(ReactNative.View, {
-        style: {
-            flex: 1,
-            gap: 4
-        }
-    }, /*#__PURE__*/ React.createElement(ReactNative.Text, {
-        style: {
-            color: colors.text,
-            fontSize: 16,
-            fontWeight: '700'
-        }
-    }, label), description ? /*#__PURE__*/ React.createElement(ReactNative.Text, {
-        style: {
-            color: colors.muted,
-            fontSize: 14,
-            lineHeight: 19
-        }
-    }, description) : null), /*#__PURE__*/ React.createElement(ReactNative.Switch, {
-        onValueChange: onValueChange,
-        value: value
-    })));
-}function _instanceof(left, right) {
+function _instanceof(left, right) {
     "@swc/helpers - instanceof";
     if (right != null && typeof Symbol !== "undefined" && right[Symbol.hasInstance]) {
         return !!right[Symbol.hasInstance](left);
@@ -131,26 +23,6 @@ function applyTimeoutIcon(row, message, members, channels) {
     if (!value) return;
     var deadline = _instanceof(value, Date) ? value.getTime() : new Date(String(value)).getTime();
     if (Number.isFinite(deadline) && deadline > Date.now()) row.communicationDisabled = true;
-}
-function SettingsPanel() {
-    var state = STORE.useSettingsStore();
-    return /*#__PURE__*/ React.createElement(SettingsScrollView, null, /*#__PURE__*/ React.createElement(SettingsSection, {
-        title: "Visibility"
-    }, /*#__PURE__*/ React.createElement(SettingsSwitchRow, {
-        label: "Show Timeout Icons",
-        description: "Show member timeout icons in chat",
-        value: state.get('showTimeouts', true),
-        onValueChange: function onValueChange(value) {
-            return state.set('showTimeouts', value);
-        }
-    }), /*#__PURE__*/ React.createElement(SettingsSwitchRow, {
-        label: "Show Paused Invites",
-        description: "Show paused-invite notices in server views",
-        value: state.get('showInvitesPaused', true),
-        onValueChange: function onValueChange(value) {
-            return state.set('showInvitesPaused', value);
-        }
-    })));
 }
 var index = {
     start: function start() {
@@ -196,7 +68,7 @@ var index = {
         unpatches = [];
     },
     getSettingsPanel: function getSettingsPanel() {
-        return /*#__PURE__*/ React.createElement(SettingsPanel, null);
+        return null;
     }
 };
 return index;
