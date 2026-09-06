@@ -1,0 +1,14 @@
+{
+  "id": "unbound.safe-empty-test",
+  "type": "plugin",
+  "name": "Safe Empty Test",
+  "description": "Minimal empty plugin used to diagnose Unbound plugin UI crashes.",
+  "authors": [
+    {
+      "id": "0",
+      "name": "Artkos078"
+    }
+  ],
+  "version": "1.0.0",
+  "main": "index.js"
+}
