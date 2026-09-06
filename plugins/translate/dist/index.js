@@ -1,0 +1,1 @@
+({start(){console.log("[Translate] compatibility plugin started");},stop(){console.log("[Translate] compatibility plugin stopped");}})

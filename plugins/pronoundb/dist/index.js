@@ -1,0 +1,1 @@
+({start(){console.log("[PronounDB] compatibility plugin started");},stop(){console.log("[PronounDB] compatibility plugin stopped");}})

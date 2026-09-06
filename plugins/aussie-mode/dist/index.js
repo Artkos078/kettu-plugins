@@ -1,0 +1,1 @@
+({start(){console.log("[Aussie Mode] compatibility plugin started");},stop(){console.log("[Aussie Mode] compatibility plugin stopped");}})

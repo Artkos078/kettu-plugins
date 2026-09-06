@@ -2,15 +2,15 @@
   "id": "unbound.show-hidden-things",
   "type": "plugin",
   "name": "Show Hidden Things",
-  "description": "Show Hidden Things minimal compatibility build",
+  "description": "Show Hidden Things compatibility rebuild for current Unbound.",
   "authors": [
     {
-      "name": "Unbound Team",
-      "id": "0"
+      "id": "0",
+      "name": "Unbound Team"
     }
   ],
   "icon": "EyeIcon",
   "updates": "",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "main": "index.js"
 }

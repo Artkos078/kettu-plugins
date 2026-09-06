@@ -19,11 +19,11 @@ function manifestToDist() {
 		name: 'manifest-to-dist',
 		buildStart() {
 			const manifest = JSON.parse(readFileSync(resolve(pluginRoot, 'manifest.json'), 'utf8'));
-			manifest.main = manifest.main.replace(/\.(tsx|ts|jsx|mjs)$/, '.js');
+			manifest.main = 'index.js';
 			this.emitFile({
 				type: 'asset',
 				fileName: 'manifest.json',
-				source: `${JSON.stringify(manifest, null, '\t')}\n`,
+				source: `${JSON.stringify(manifest, null, 2)}\n`,
 			});
 		},
 	};
@@ -45,7 +45,7 @@ function hermesExpressionEntrypoint() {
 }
 
 export default {
-	input: 'src/index.tsx',
+	input: "src/index.tsx",
 	output: {
 		dir: 'dist',
 		entryFileNames: 'index.js',

@@ -19,11 +19,11 @@ function manifestToDist() {
 		name: 'manifest-to-dist',
 		buildStart() {
 			const manifest = JSON.parse(readFileSync(resolve(pluginRoot, 'manifest.json'), 'utf8'));
-			manifest.main = manifest.main.replace(/\.(tsx|ts|jsx|mjs)$/, '.js');
+			manifest.main = 'index.js';
 			this.emitFile({
 				type: 'asset',
 				fileName: 'manifest.json',
-				source: `${JSON.stringify(manifest, null, '\t')}\n`,
+				source: `${JSON.stringify(manifest, null, 2)}\n`,
 			});
 		},
 	};
@@ -38,14 +38,14 @@ function hermesExpressionEntrypoint() {
 				let code = chunk.code.trim();
 				code = code.replace(/^var\s+[A-Za-z_$][\w$]*\s*=\s*/, '');
 				code = code.replace(/;\s*$/, '');
-				chunk.code = `({__plugin:null,__load(){if(this.__plugin)return this.__plugin;this.__plugin=${code};return this.__plugin;},start(){const plugin=this.__load();if(plugin&&typeof plugin.start==='function')return plugin.start();},stop(){const plugin=this.__load();if(plugin&&typeof plugin.stop==='function')return plugin.stop();},getSettingsPanel(){const plugin=this.__load();return plugin?.getSettingsPanel?.();}})`;
+				chunk.code = `({__plugin:null,__load(){if(this.__plugin)return this.__plugin;this.__plugin=${code};return this.__plugin;},start(){const plugin=this.__load();if(plugin&&typeof plugin.start==='function')return plugin.start();},stop(){const plugin=this.__load();if(plugin&&typeof plugin.stop==='function')return plugin.stop();}})`;
 			}
 		},
 	};
 }
 
 export default {
-	input: 'src/index.tsx',
+	input: "src/index.tsx",
 	output: {
 		dir: 'dist',
 		entryFileNames: 'index.js',
@@ -55,12 +55,5 @@ export default {
 		globals,
 	},
 	external: Object.keys(globals),
-	plugins: [
-		nodeResolve(),
-		json(),
-		swc({ tsconfig: false }),
-		iife(),
-		hermesExpressionEntrypoint(),
-		manifestToDist(),
-	],
+	plugins: [nodeResolve(), json(), swc({ tsconfig: false }), iife(), hermesExpressionEntrypoint(), manifestToDist()],
 };

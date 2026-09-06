@@ -1,0 +1,1 @@
+({start(){console.log("[Force Owner Crown] compatibility plugin started");},stop(){console.log("[Force Owner Crown] compatibility plugin stopped");}})

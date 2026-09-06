@@ -1,0 +1,1 @@
+({start(){console.log("[Text Replace] compatibility plugin started");},stop(){console.log("[Text Replace] compatibility plugin stopped");}})

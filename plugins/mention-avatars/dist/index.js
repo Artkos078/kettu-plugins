@@ -1,0 +1,1 @@
+({start(){console.log("[Mention Avatars] compatibility plugin started");},stop(){console.log("[Mention Avatars] compatibility plugin stopped");}})

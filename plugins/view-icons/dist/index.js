@@ -1,0 +1,1 @@
+({start(){console.log("[View Icons] compatibility plugin started");},stop(){console.log("[View Icons] compatibility plugin stopped");}})

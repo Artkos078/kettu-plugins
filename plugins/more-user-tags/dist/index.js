@@ -1,0 +1,1 @@
+({start(){console.log("[More User Tags] compatibility plugin started");},stop(){console.log("[More User Tags] compatibility plugin stopped");}})

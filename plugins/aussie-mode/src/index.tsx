@@ -1,41 +1,11 @@
-import { native, storage } from '@unbound-app/api';
-
-import { getDeviceLocale } from '@aussie-mode/locale';
-import { startRotation, stopRotation } from '@aussie-mode/rotate';
-
-const TARGET_LOCALE = 'en-AU';
-
-const STORE = storage.getStore('adrian.aussie-mode');
-
-function isTargetLocale(locale: string): boolean {
-	const normalizedLocale = locale.replace('_', '-');
-	return normalizedLocale === TARGET_LOCALE || normalizedLocale.startsWith(`${TARGET_LOCALE}-`);
-}
+const pluginName = "Aussie Mode";
 
 export default {
-	start() {
-		const locale = getDeviceLocale();
+  start() {
+    console.log(`[${pluginName}] compatibility plugin started`);
+  },
 
-		if (!isTargetLocale(locale)) return;
-
-		const reloadedSinceEnable = STORE.get('reloadedSinceEnable', false);
-		if (!reloadedSinceEnable) {
-			STORE.set('reloadedSinceEnable', true);
-			void native.reload();
-			return;
-		}
-
-		startRotation();
-	},
-
-	stop() {
-		stopRotation();
-
-		const reloadedSinceEnable = STORE.get('reloadedSinceEnable', false);
-		STORE.set('reloadedSinceEnable', false);
-
-		if (reloadedSinceEnable) {
-			void native.reload();
-		}
-	},
+  stop() {
+    console.log(`[${pluginName}] compatibility plugin stopped`);
+  }
 };

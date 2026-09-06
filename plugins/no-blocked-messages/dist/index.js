@@ -1,0 +1,1 @@
+({start(){console.log("[No Blocked Messages] compatibility plugin started");},stop(){console.log("[No Blocked Messages] compatibility plugin stopped");}})

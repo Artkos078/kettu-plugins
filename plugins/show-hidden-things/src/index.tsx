@@ -1,9 +1,11 @@
-export default {
-    start() {
-        console.log("[Show Hidden Things] plugin started");
-    },
+const pluginName = "Show Hidden Things";
 
-    stop() {
-        console.log("[Show Hidden Things] plugin stopped");
-    }
+export default {
+  start() {
+    console.log(`[${pluginName}] compatibility plugin started`);
+  },
+
+  stop() {
+    console.log(`[${pluginName}] compatibility plugin stopped`);
+  }
 };

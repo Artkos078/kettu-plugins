@@ -1,25 +1,11 @@
-import { toasts } from '@unbound-app/api';
-
-import { startTranslateMenuPatch, stopTranslateMenuPatch } from '@translate/menu';
-import { TranslateSettingsScreen } from '@translate/settings';
+const pluginName = "Translate";
 
 export default {
-	start() {
-		try {
-			startTranslateMenuPatch();
-		} catch (error) {
-			toasts.showToast({
-				title: 'Translate',
-				content: error instanceof Error ? error.message : String(error),
-			});
-		}
-	},
+  start() {
+    console.log(`[${pluginName}] compatibility plugin started`);
+  },
 
-	stop() {
-		try {
-			stopTranslateMenuPatch();
-		} catch { }
-
-	},
-	getSettingsPanel: () => <TranslateSettingsScreen />,
+  stop() {
+    console.log(`[${pluginName}] compatibility plugin stopped`);
+  }
 };

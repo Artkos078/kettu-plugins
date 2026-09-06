@@ -1,0 +1,1 @@
+({start(){console.log("[Show Timeout Duration] compatibility plugin started");},stop(){console.log("[Show Timeout Duration] compatibility plugin stopped");}})

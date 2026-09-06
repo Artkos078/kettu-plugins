@@ -1,0 +1,1 @@
+({start(){console.log("[GIF Paste] compatibility plugin started");},stop(){console.log("[GIF Paste] compatibility plugin stopped");}})

@@ -1,0 +1,1 @@
+({start(){console.log("[Typing Avatars] compatibility plugin started");},stop(){console.log("[Typing Avatars] compatibility plugin stopped");}})

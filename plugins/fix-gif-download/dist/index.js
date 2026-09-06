@@ -1,0 +1,1 @@
+({start(){console.log("[Fix GIF Downloads] compatibility plugin started");},stop(){console.log("[Fix GIF Downloads] compatibility plugin stopped");}})
