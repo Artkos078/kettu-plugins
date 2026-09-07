@@ -180,6 +180,7 @@
     items.push({
       url: String(url),
       proxyUrl: String(raw.proxy_url || raw.proxyURL || url),
+      thumbnailUrl: String(raw.thumbnailUrl || raw.thumbnail_url || (raw.thumbnail && (raw.thumbnail.proxy_url || raw.thumbnail.url)) || ""),
       width: Number(raw.width) || 0,
       height: Number(raw.height) || 0,
       type: type,
@@ -201,8 +202,10 @@
         if (items.length >= max || !embed) return;
         if (embed.image) pushMedia(items, seen, message, Object.assign({}, embed.image, { content_type: "image/*" }), "embed");
         if (embed.thumbnail) pushMedia(items, seen, message, Object.assign({}, embed.thumbnail, { content_type: "image/*" }), "embed");
-        if (embed.video) pushMedia(items, seen, message, Object.assign({}, embed.video, { content_type: "video/*" }), "embed");
-        if (embed.url) pushMedia(items, seen, message, { url: embed.url, title: embed.title || "embed" }, "embed");
+        var poster = embed.thumbnail || embed.image;
+        var posterUrl = poster && (poster.proxy_url || poster.proxyURL || poster.url);
+        if (embed.video) pushMedia(items, seen, message, Object.assign({}, embed.video, { content_type: "video/*", thumbnailUrl: posterUrl }), "embed");
+        if (embed.url) pushMedia(items, seen, message, { url: embed.url, title: embed.title || "embed", thumbnailUrl: posterUrl }, "embed");
       });
     });
     return items;
@@ -315,6 +318,38 @@
     });
   }
 
+  function previewUrls(item) {
+    var urls = [];
+    function add(url) { if (url && urls.indexOf(url) === -1) urls.push(url); }
+    add(item.thumbnailUrl);
+    var source = item.proxyUrl || item.url || "";
+    if (item.type === "video") {
+      // Request a still from Discord's media proxy, keeping signed URL parameters.
+      source = source.replace(/^https:\/\/cdn\.discordapp\.com\//i, "https://media.discordapp.net/");
+      if (/^https:\/\/(media\.discordapp\.net|images-ext-\d+\.discordapp\.net)\//i.test(source)) {
+        var parts = source.split("#")[0].split("?");
+        var params = (parts[1] || "").split("&").filter(function (p) { return p && !/^(format|width|height)=/i.test(p); });
+        add(parts[0] + "?" + params.concat(["format=jpeg", "width=400", "height=300"]).join("&"));
+        add(parts[0] + "?" + params.concat(["format=webp", "width=400", "height=300"]).join("&"));
+      }
+    } else if (item.type === "image") { add(source); add(item.url); }
+    return urls;
+  }
+
+  function MediaPreview(props) {
+    var item = props.item;
+    var urls = previewUrls(item);
+    var attemptState = React.useState(0), attempt = attemptState[0], setAttempt = attemptState[1];
+    var loadedState = React.useState(false), loaded = loadedState[0], setLoaded = loadedState[1];
+    var uri = urls[attempt];
+    return React.createElement(RN.View, { style: { height: 112, backgroundColor: "#252530", justifyContent: "center", alignItems: "center", overflow: "hidden" } },
+      !loaded ? React.createElement(RN.Text, { numberOfLines: 3, style: { color: "#bbb", padding: 8, fontSize: 11, textAlign: "center" } }, uri ? "Loading preview…" : "Preview unavailable\n" + (item.name || "Tap to open")) : null,
+      uri && RN.Image ? React.createElement(RN.Image, { key: uri, source: { uri: uri }, resizeMode: "cover", onLoad: function () { setLoaded(true); }, onError: function () { setLoaded(false); setAttempt(attempt + 1); }, style: { position: "absolute", left: 0, top: 0, width: "100%", height: 112 } }) : null,
+      item.type === "video" ? React.createElement(RN.Text, { style: { position: "absolute", right: 6, bottom: 6, color: "white", backgroundColor: "#0009", padding: 5, borderRadius: 6, fontSize: 18 } }, "▶") : null,
+      item.origin === "embed" ? React.createElement(RN.Text, { style: { position: "absolute", left: 5, top: 5, color: "white", backgroundColor: "#0009", padding: 3, fontSize: 10 } }, "EMBED") : null
+    );
+  }
+
   function Settings() {
     if (!React || !RN || !RN.View || !RN.Text) return null;
     var View = RN.View, Text = RN.Text, Image = RN.Image, Pressable = RN.Pressable || RN.TouchableOpacity, ScrollView = RN.ScrollView || RN.View, TextInput = RN.TextInput, ActivityIndicator = RN.ActivityIndicator;
@@ -358,16 +393,9 @@
       );
     }
     function tile(item, index) {
-      var isImage = item.type === "image";
-      var isVideo = item.type === "video";
-      var thumb = item.proxyUrl || item.url;
       return React.createElement(View, { key: item.url + index, style: { width: "33.333%", padding: 4 } },
         React.createElement(Pressable, { onPress: function () { openNativeMedia(item).catch(function (e) { var error = e && e.message ? e.message : String(e); setMessage(error); toast(error); }); }, onLongPress: function () { copyUrl(item.url); }, style: { backgroundColor: "#222", borderRadius: 8, overflow: "hidden", minHeight: 112 } },
-          (isImage || isVideo) && Image ? React.createElement(View, { style: { height: 112, backgroundColor: "#111" } },
-            React.createElement(Image, { source: { uri: thumb }, resizeMode: "cover", style: { width: "100%", height: 112, opacity: isVideo ? 0.72 : 1 } }),
-            isVideo ? React.createElement(View, { style: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" } }, React.createElement(View, { style: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.62)", alignItems: "center", justifyContent: "center" } }, React.createElement(Text, { style: { color: "white", fontSize: 20, fontWeight: "900", marginLeft: 3 } }, "▶"))) : null,
-            item.origin === "embed" ? React.createElement(Text, { style: { position: "absolute", left: 6, top: 6, color: "white", backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 5, overflow: "hidden", paddingHorizontal: 5, paddingVertical: 2, fontSize: 10, fontWeight: "800" } }, "EMBED") : null
-          ) : React.createElement(View, { style: { height: 112, alignItems: "center", justifyContent: "center", backgroundColor: "#181818", padding: 8 } }, React.createElement(Text, { style: { color: "white", fontWeight: "900" } }, "EMBED"), React.createElement(Text, { numberOfLines: 2, style: { color: "#aaa", marginTop: 6, textAlign: "center", fontSize: 11 } }, item.name || item.url))
+          React.createElement(MediaPreview, { key: previewUrls(item).join("|"), item: item })
         )
       );
     }
