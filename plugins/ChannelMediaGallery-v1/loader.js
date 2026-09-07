@@ -36,7 +36,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.13&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.14&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
@@ -46,9 +46,11 @@ async function fetchCore(){
   throw last||new Error('Could not fetch core');
 }
 
-async function start(){
-  if(started)return;
+async function start(force){
+  if(started&&!force)return;
+  if(force)stop();
   started=true;
+  loadError=null;
   try{
     var src=patchCore(await fetchCore());
     runtime=(0,eval)('(function(vendetta){return '+src+';})')(V);
@@ -56,8 +58,10 @@ async function start(){
     else if(runtime&&typeof runtime.start==='function')runtime.start();
     toast('Channel Media Gallery loader ready');
   }catch(e){
+    started=false;
+    runtime=null;
     loadError=e;
-    toast('Channel Media Gallery core failed; config still opens');
+    toast('Channel Media Gallery core failed. Open config and press Retry.');
   }
 }
 
@@ -68,6 +72,7 @@ function stop(){
 }
 
 function Settings(){
+  try{if(!runtime&&!started)start();}catch(_e){}
   if(runtime&&runtime.settings){
     try{return React.createElement(runtime.settings,{});}catch(e){loadError=e;}
   }
@@ -79,8 +84,8 @@ function Settings(){
   return React.createElement(View,{style:{padding:16}},
     React.createElement(Text,{style:{color:'white',fontSize:24,fontWeight:'900'}},'Channel Media Gallery'),
     React.createElement(Text,{style:{color:'#ffb86b',marginTop:10}},loadError?'Core load error: '+(loadError.message||String(loadError)):'Core is loading. Close and reopen this settings page.'),
-    React.createElement(Text,{style:{color:'#aaa',marginTop:10}},'This loader is active, so Kettu toggle/config is working. The gallery core loads from index.js.'),
-    Pressable?React.createElement(Pressable,{onPress:start,style:{marginTop:16,padding:13,borderRadius:8,backgroundColor:'#5865f2',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Retry Load Gallery Core')):null
+    React.createElement(Text,{style:{color:'#aaa',marginTop:10}},'The config screen is open. If the gallery did not load yet, retry will fetch a fresh copy of index.js.'),
+    Pressable?React.createElement(Pressable,{onPress:function(){start(true);},style:{marginTop:16,padding:13,borderRadius:8,backgroundColor:'#5865f2',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Retry Load Gallery Core')):null
   );
 }
 
