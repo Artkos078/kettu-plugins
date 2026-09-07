@@ -5,6 +5,7 @@ This folder contains the retained Kettu plugin sources. For normal installs, use
 | Plugin | Status | Purpose | Install URL |
 | --- | --- | --- | --- |
 | **PrivateChats v9** | Recommended | Locally hide/lock protected DMs and servers with passcode and auto-lock behavior. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
+| **Bypass Size Limit v1** | Experimental | Uploads oversized MP4 files as Discord clips using browser-side clip metadata bytes. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/BypassSizeLimit-v1/` |
 | **NativeVideoPlayer v2** | Legacy / experimental | Older video-opening implementation retained for testing/reference. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/NativeVideoPlayer-v2/` |
 | **VideoSkipGestures v3** | Legacy / experimental | Older media gesture implementation retained for reference. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/VideoSkipGestures-v3/` |
 
