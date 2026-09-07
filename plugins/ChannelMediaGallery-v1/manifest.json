@@ -6,10 +6,10 @@
       "name": "Artkos078"
     }
   ],
-  "main": "loader.js",
+  "main": "index.js",
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.14-loader-retry",
-  "version": "1.1.14"
+  "hash": "channel-media-gallery-v1.1.15-direct-index",
+  "version": "1.1.15"
 }
