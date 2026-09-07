@@ -1,0 +1,9 @@
+{
+  "name": "PrivateChats v8",
+  "description": "Hide selected DMs and servers with a passcode. Exact long-press hooks for DM and server context menus.",
+  "authors": [{"name":"ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_lock_24px"},
+  "hash": "e253641ebafb1e62048c8fa6f227d9c0ba870b22",
+  "version": "0.8.0"
+}
