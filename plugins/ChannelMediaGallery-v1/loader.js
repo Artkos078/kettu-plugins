@@ -65,7 +65,7 @@ function patchCore(js){
   js=String(js||'');
   js=js.replace("var V = globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};","var V = (typeof vendetta !== 'undefined' && vendetta) || globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};");
   js=js.replace("var findByProps = metro.findByProps || V.findByProps || function () { return null; };","function findByProps(){ try { if (typeof metro.findByProps === 'function') return metro.findByProps.apply(metro, arguments); } catch(e) {} try { if (typeof V.findByProps === 'function') return V.findByProps.apply(V, arguments); } catch(e) {} return null; }");
-  js=js.replace("function onLoad() {\n    rememberCurrentChannel();\n    if (timer) clearInterval(timer);\n    timer = setInterval(rememberCurrentChannel, 1500);\n    toast(\"Channel Media Gallery loaded\");\n  }","function onLoad() {\n    try { rememberCurrentChannel(); } catch(e) { status.last = 'Channel tracker unavailable: ' + (e && e.message ? e.message : e); }\n    try { if (timer) clearInterval(timer); timer = setInterval(function(){ try { rememberCurrentChannel(); } catch(e) {} }, 1500); } catch(e2) {}\n    toast('Channel Media Gallery loaded');\n  }");
+  js=js.replace("function onLoad() {\n    rememberCurrentChannel();\n    if (timer) clearInterval(timer);\n    timer = setInterval(rememberCurrentChannel, 1500);\n    toast(\"Channel Media Gallery loaded\");\n  }","function onLoad() {\n    try { rememberCurrentChannel(); } catch(e) { status.last = 'Channel tracker unavailable: ' + (e && e.message ? e.message : e); }\n    try { if (timer) clearInterval(timer); timer = setInterval(function(){ try { rememberCurrentChannel(); } catch(e) {} }, 1500); } catch(e2) {}\n  }");
   return js;
 }
 
@@ -98,7 +98,6 @@ async function start(){
     if(runtime&&runtime.default)runtime=runtime.default;
     if(runtime&&typeof runtime.onLoad==='function')runtime.onLoad();
     else if(runtime&&typeof runtime.start==='function')runtime.start();
-    toast('Channel Media Gallery loader ready');
   }catch(e){
     loadError=e;
     toast('Channel Media Gallery core failed; config still opens');
