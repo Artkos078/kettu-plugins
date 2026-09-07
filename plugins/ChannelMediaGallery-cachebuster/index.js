@@ -13,9 +13,23 @@
   var RN = common.ReactNative || findByProps("View", "Text", "TextInput", "Pressable") || {};
   var ui = V.ui || {};
   var toastApi = ui.toasts || {};
-  var storageRoot = (V.plugin && V.plugin.storage) || V.storage || {};
-  if (!storageRoot.channelMediaGalleryCachebuster) storageRoot.channelMediaGalleryCachebuster = {};
-  var storage = storageRoot.channelMediaGalleryCachebuster;
+  var memoryStorage = {};
+  function objectLike(value) { return value && (typeof value === "object" || typeof value === "function"); }
+  function getStorageRoot() {
+    var root = null;
+    try { if (V.plugin && objectLike(V.plugin.storage)) root = V.plugin.storage; } catch (e) {}
+    try { if (!objectLike(root) && objectLike(V.storage)) root = V.storage; } catch (e2) {}
+    return objectLike(root) ? root : memoryStorage;
+  }
+  function getPluginStorage() {
+    var root = getStorageRoot();
+    try {
+      if (!objectLike(root.channelMediaGalleryCachebuster)) root.channelMediaGalleryCachebuster = {};
+      if (objectLike(root.channelMediaGalleryCachebuster)) return root.channelMediaGalleryCachebuster;
+    } catch (e) {}
+    return memoryStorage;
+  }
+  var storage = getPluginStorage();
   var timer = null;
   var fetchedChannels = {};
   var remoteChannels = {};
@@ -539,7 +553,7 @@
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery Cachebuster 1.1.20"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery Cachebuster 1.1.26"),
       React.createElement(Pressable, { accessibilityRole: "button", onPress: function () { setMessage("Hi!"); toast("Hi!"); }, style: { padding: 12, marginTop: 10, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Hi")),
       storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: refreshGuild, style: { padding: 12, marginTop: 12, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Force Load Server Channels")) : null,
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
@@ -580,5 +594,5 @@
     delay(5000).then(function () { rememberCurrentChannel(); toast("Channel Media Gallery loaded"); }).catch(function () { toast("Channel Media Gallery loaded"); });
   }
   function onUnload() { if (timer) clearInterval(timer); timer = null; toast("Channel Media Gallery unloaded"); }
-  return { onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings };
+  var plugin = { onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings }; return { default: plugin, __esModule: true, onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings, Settings: Settings, SettingsComponent: Settings, getSettingsPanel: Settings };
 })()
