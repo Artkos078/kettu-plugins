@@ -1,0 +1,15 @@
+{
+  "name": "Channel Media Gallery Fixed v3",
+  "description": "Kettu channel media gallery with direct loader file, saved media, filters, previews, and server force loading.",
+  "authors": [
+    {
+      "name": "Artkos078"
+    }
+  ],
+  "main": "loader.js",
+  "vendetta": {
+    "icon": "ic_image_24px"
+  },
+  "hash": "channel-media-gallery-fixed-v3-direct-loader-3.0.0",
+  "version": "3.0.0"
+}
