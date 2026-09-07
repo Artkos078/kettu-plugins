@@ -1,9 +1,9 @@
 {
   "name": "PrivateChats v9",
-  "description": "Hide and lock protected DMs and servers with hashed passcode verification, auto-lock, route blocking, and current Discord list hooks.",
+  "description": "Hide and locally lock protected DMs and servers with salted passcode hashing, lockout, auto-lock, route blocking, current Kettu list hooks, and direct context-menu protection.",
   "authors": [{"name":"ChatGPT"}],
-  "main": "index.js",
+  "main": "loader.js",
   "vendetta": {"icon":"ic_lock_24px"},
-  "hash": "secure-v9.1-dfae2142cea3cc34855592e0f6eae4dd1e871ce9",
-  "version": "0.9.1"
+  "hash": "v9.2-3da6d7d4a7e795ede29371e2c7bb1a8c0c2732766b3270b7ff7646c9eafe2f11",
+  "version": "0.9.2"
 }
