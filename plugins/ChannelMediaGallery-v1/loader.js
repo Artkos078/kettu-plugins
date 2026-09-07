@@ -12,9 +12,23 @@ var coreStorage={};
 var runtime=null;
 var loadError=null;
 var started=false;
+var SERVER_CACHE_GUILD_ID='759270446478000179';
+var SERVER_CACHE_KEY='channelMediaGallery.serverCache.'+SERVER_CACHE_GUILD_ID;
 
 function props(){try{return metro.findByProps&&metro.findByProps.apply(metro,arguments);}catch(e){return null;}}
 function toast(t){try{if(ui.toasts&&ui.toasts.showToast)ui.toasts.showToast(String(t));else if(ui.showToast)ui.showToast(String(t));}catch(e){try{console.log('[ChannelMediaGallery]',t);}catch(_){}}}
+function readLocalCache(){try{if(globalThis.localStorage){var v=globalThis.localStorage.getItem(SERVER_CACHE_KEY);if(v)return JSON.parse(v);}}catch(e){}return null;}
+function writeLocalCache(value){try{if(globalThis.localStorage)globalThis.localStorage.setItem(SERVER_CACHE_KEY,JSON.stringify(value));}catch(e){}}
+function clearLocalCache(){try{if(globalThis.localStorage)globalThis.localStorage.removeItem(SERVER_CACHE_KEY);}catch(e){}}
+function storageBox(){try{if(V.storage&&typeof V.storage==='object')return V.storage;}catch(e){}return null;}
+function readVendettaCache(){try{var box=storageBox();return box&&box[SERVER_CACHE_KEY]||null;}catch(e){return null;}}
+function writeVendettaCache(value){try{var box=storageBox();if(box)box[SERVER_CACHE_KEY]=value;}catch(e){}}
+function clearVendettaCache(){try{var box=storageBox();if(box)delete box[SERVER_CACHE_KEY];}catch(e){}}
+var persistentBridge={
+  load:function(){return readVendettaCache()||readLocalCache()||null;},
+  save:function(value){writeVendettaCache(value);writeLocalCache(value);},
+  clear:function(){clearVendettaCache();clearLocalCache();}
+};
 
 if(!React)React=props('createElement','useState')||globalThis.React;
 if(!RN)RN=props('View','Text','TextInput','Pressable')||{};
@@ -35,7 +49,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.34&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.35&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
@@ -50,7 +64,7 @@ async function start(){
   started=true;
   try{
     var src=patchCore(await fetchCore());
-    var safeV={metro:V.metro,ui:V.ui,utils:V.utils,patcher:V.patcher,storage:coreStorage,plugin:{id:'',storage:coreStorage}};
+    var safeV={metro:V.metro,ui:V.ui,utils:V.utils,patcher:V.patcher,storage:coreStorage,plugin:{id:'',storage:coreStorage},channelMediaGalleryPersistent:persistentBridge};
     runtime=(0,eval)('(function(vendetta){return '+src+';})')(safeV);
     if(runtime&&runtime.default)runtime=runtime.default;
     if(runtime&&runtime.default)runtime=runtime.default;
@@ -73,6 +87,7 @@ function clearCache(){
     coreStorage.channelMediaGallery.savedGuildId=null;
     coreStorage.channelMediaGallery.selectedChannelId=null;
     coreStorage.channelMediaGallery.selectedGuildId=null;
+    persistentBridge.clear();
     toast('Channel Media Gallery cache cleared');
   }catch(e){loadError=e;toast('Clear cache failed: '+(e&&e.message?e.message:e));}
 }
