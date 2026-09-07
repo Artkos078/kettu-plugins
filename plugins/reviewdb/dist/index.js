@@ -1,1 +1,0 @@
-({start(){console.log("[ReviewDB] compatibility plugin started");},stop(){console.log("[ReviewDB] compatibility plugin stopped");}})

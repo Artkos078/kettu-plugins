@@ -1,1 +1,0 @@
-({start(){console.log("[Show Me Your Name] compatibility plugin started");},stop(){console.log("[Show Me Your Name] compatibility plugin stopped");}})

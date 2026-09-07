@@ -1,1 +1,0 @@
-({start(){console.log("[Show Hidden Things] compatibility plugin started");},stop(){console.log("[Show Hidden Things] compatibility plugin stopped");}})

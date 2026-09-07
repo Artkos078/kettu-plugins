@@ -1,1 +1,0 @@
-({start(){console.log("[View Raw] compatibility plugin started");},stop(){console.log("[View Raw] compatibility plugin stopped");}})

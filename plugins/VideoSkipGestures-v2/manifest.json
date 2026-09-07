@@ -1,9 +1,0 @@
-{
-  "name": "Video Skip Gestures v2",
-  "description": "Double-tap the left or right side of Discord's expanded media viewer to rewind or skip video.",
-  "authors": [{"name": "ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon": "ic_video_24px"},
-  "hash": "video-skip-gestures-v2-61ee02e6a62bd9ae13efcb878688ecc805571890",
-  "version": "2.0.0"
-}

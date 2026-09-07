@@ -1,1 +1,0 @@
-({start(){console.log("[Clear URLs] compatibility plugin started");},stop(){console.log("[Clear URLs] compatibility plugin stopped");}})

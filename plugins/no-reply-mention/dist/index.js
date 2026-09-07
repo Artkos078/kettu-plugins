@@ -1,1 +1,0 @@
-({start(){console.log("[No Reply Mention] compatibility plugin started");},stop(){console.log("[No Reply Mention] compatibility plugin stopped");}})

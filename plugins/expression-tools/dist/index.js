@@ -1,1 +1,0 @@
-({start(){console.log("[Expression Tools] compatibility plugin started");},stop(){console.log("[Expression Tools] compatibility plugin stopped");}})

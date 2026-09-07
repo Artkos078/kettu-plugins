@@ -1,1 +1,0 @@
-({start(){console.log("[Hide Gift Button] compatibility plugin started");},stop(){console.log("[Hide Gift Button] compatibility plugin stopped");}})

@@ -1,1 +1,0 @@
-({start(){console.log("[Message Link Embeds] compatibility plugin started");},stop(){console.log("[Message Link Embeds] compatibility plugin stopped");}})

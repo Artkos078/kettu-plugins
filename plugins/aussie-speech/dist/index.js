@@ -1,1 +1,0 @@
-({start(){console.log("[Aussie Speech] compatibility plugin started");},stop(){console.log("[Aussie Speech] compatibility plugin stopped");}})

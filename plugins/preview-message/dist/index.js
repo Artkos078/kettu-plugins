@@ -1,1 +1,0 @@
-({start(){console.log("[Preview Message] compatibility plugin started");},stop(){console.log("[Preview Message] compatibility plugin stopped");}})
