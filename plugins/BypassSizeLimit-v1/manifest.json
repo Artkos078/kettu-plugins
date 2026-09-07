@@ -1,8 +1,8 @@
 {
   "id": "kettu.bypass-size-limit",
   "name": "Bypass Size Limit v1",
-  "version": "1.0.3",
-  "description": "Patches Kettu mobile fetch/XHR upload requests so large MP4 files are sent as Discord clips.",
+  "version": "1.1.0",
+  "description": "Uploads large Kettu mobile files to Catbox or Litterbox and sends a link in the current chat.",
   "authors": [
     {
       "name": "Roo",
@@ -13,6 +13,6 @@
   "vendetta": {
     "icon": "ic_upload_24px"
   },
-  "hash": "bypass-size-limit-v1-1.0.3",
+  "hash": "bypass-size-limit-v1-1.1.0",
   "license": "MIT"
 }
