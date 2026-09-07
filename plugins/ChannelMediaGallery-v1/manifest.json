@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery v1",
-  "description": "Keeps channel images, videos, GIFs, and embeds in a filtered in-app gallery, with server force loading and cached results.",
+  "description": "Compact inline Kettu channel media gallery with saved media, filters, previews, and native modal opening.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.19-clear-cache-bust",
-  "version": "1.1.19"
+  "hash": "channel-media-gallery-lite-1.1.21-inline",
+  "version": "1.1.21"
 }
