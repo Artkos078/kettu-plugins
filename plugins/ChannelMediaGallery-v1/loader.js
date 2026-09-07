@@ -33,7 +33,7 @@ function patchCore(js){
 }
 
 function urls(){
-  var tag='v=1.1.18&t='+Date.now();
+  var tag='v=1.1.19&cache=clear-20260907&t='+Date.now();
   var out=[];
   try{if(V.plugin&&V.plugin.id)out.push(withSlash(V.plugin.id)+'index.js?'+tag);}catch(e){}
   out.push('https://cdn.jsdelivr.net/gh/Artkos078/kettu-plugins@main/plugins/ChannelMediaGallery-v1/index.js?'+tag);
@@ -114,7 +114,7 @@ function Settings(){
   var View=RN.View,Text=RN.Text,Pressable=RN.Pressable||RN.TouchableOpacity,ScrollView=RN.ScrollView||View;
   var detail=loadError?errText(loadError):(loading?'Loading gallery core...':'Open this page again or press retry.');
   return React.createElement(ScrollView,{style:{padding:16}},
-    React.createElement(Text,{style:{color:'white',fontSize:24,fontWeight:'900'}},'Channel Media Gallery Loader 1.1.18'),
+    React.createElement(Text,{style:{color:'white',fontSize:24,fontWeight:'900'}},'Channel Media Gallery Loader 1.1.19'),
     React.createElement(Text,{style:{color:loadError?'#ff6b6b':'#ffb86b',marginTop:10}},detail),
     React.createElement(Text,{style:{color:'#aaa',marginTop:10}},'Last URL: '+(lastUrl||'none yet')),
     Pressable?React.createElement(Pressable,{onPress:function(){start(true);},style:{marginTop:16,padding:13,borderRadius:8,backgroundColor:'#5865f2',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Retry Load Gallery')):null
