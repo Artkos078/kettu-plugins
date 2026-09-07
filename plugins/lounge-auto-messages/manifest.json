@@ -1,14 +1,14 @@
 {
-  "id": "unbound.lounge-auto-messages",
+  "id": "kettu.lounge-auto-messages",
   "type": "plugin",
-  "name": "Lounge Auto Messages",
-  "description": "Returns to Messages after the app is backgrounded while viewing The Lounge.",
+  "name": "Kettu Lounge Auto Messages",
+  "description": "Returns Kettu to Messages after the app is backgrounded while viewing The Lounge.",
   "authors": [
     {
       "id": "0",
       "name": "Artkos078"
     }
   ],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "index.js"
 }
