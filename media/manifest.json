@@ -1,9 +1,9 @@
 {
-  "name": "NativeVideoPlayer v2.1",
-  "description": "Opens Discord videos with the iOS media handler without also opening Discord's media viewer.",
+  "name": "Kettu Media Gestures",
+  "description": "Adds double-tap rewind/forward to Kettu's Discord media viewer while keeping the close and playback controls clickable.",
   "authors": [{"name":"Artkos078"}],
   "main": "index.js",
   "vendetta": {"icon":"ic_play_24px"},
-  "hash": "kettu-native-video-player-v2.1-close-fix",
-  "version": "2.1.0"
+  "hash": "kettu-media-gestures-v3.1-control-safe",
+  "version": "3.1.0"
 }
