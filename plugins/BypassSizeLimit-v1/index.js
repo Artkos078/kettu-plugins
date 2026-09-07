@@ -259,8 +259,7 @@
   function onLoad() {
     if (loaded) return;
     loaded = true;
-    if (patchUploader()) toast("Bypass Size Limit loaded");
-    else toast("Bypass Size Limit failed: CloudUpload not found");
+    if (!patchUploader()) toast("Bypass Size Limit failed: CloudUpload not found");
   }
 
   function onUnload() {
