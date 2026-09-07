@@ -1,18 +1,9 @@
 {
-  "id": "kettu.channel-media-gallery",
   "name": "Channel Media Gallery v1",
-  "version": "1.0.0",
   "description": "Shows the most recent image and video media from the current Discord channel in a compact Kettu gallery.",
-  "authors": [
-    {
-      "name": "ChatGPT",
-      "id": "0"
-    }
-  ],
+  "authors": [{"name":"Artkos078"}],
   "main": "index.js",
-  "vendetta": {
-    "icon": "ic_image_24px"
-  },
-  "hash": "channel-media-gallery-v1-1.0.0",
-  "license": "MIT"
+  "vendetta": {"icon":"ic_image_24px"},
+  "hash": "channel-media-gallery-v1.0.1-kettu-config-fix",
+  "version": "1.0.1"
 }
