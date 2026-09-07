@@ -27,6 +27,7 @@
   if (storage.selectedChannelId == null) storage.selectedChannelId = null;
   if (storage.selectedGuildId == null) storage.selectedGuildId = null;
   if (storage.forceLoadChannels == null) storage.forceLoadChannels = false;
+  if (storage.openBeforeForceLoad == null) storage.openBeforeForceLoad = true;
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
 
   var status = { http: false, cache: !!storage.savedAt, last: "Not loaded" };
@@ -350,6 +351,48 @@
     return channels.length;
   }
 
+  function wait(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  async function openChannelFast(channelId) {
+    channelId = String(channelId || "");
+    if (!channelId) return "no channel";
+    var channel = getChannel(channelId) || remoteChannels[channelId] || null;
+    var guildId = String((channel && (channel.guild_id || channel.guildId)) || storage.selectedGuildId || storage.savedGuildId || "@me");
+    var route = "/channels/" + (guildId || "@me") + "/" + channelId;
+    var attempts = [];
+    function tryCall(label, fn) {
+      try {
+        var result = fn();
+        attempts.push(label + ": ok");
+        return result === false ? false : true;
+      } catch (e) {
+        attempts.push(label + ": " + (e && e.message ? e.message : String(e)));
+        return false;
+      }
+    }
+    var selector = findByProps("selectChannel") || findByProps("selectGuild", "selectChannel");
+    if (selector && typeof selector.selectChannel === "function") {
+      if (tryCall("selectChannel(guild,channel)", function () { return selector.selectChannel(guildId === "@me" ? null : guildId, channelId); })) { await wait(250); return "opened with selectChannel"; }
+      if (tryCall("selectChannel(channel)", function () { return selector.selectChannel(channelId); })) { await wait(250); return "opened with selectChannel"; }
+    }
+    var router = findByProps("transitionTo") || findByProps("replaceWith", "transitionTo") || findByProps("push", "pop");
+    if (router && typeof router.transitionTo === "function") {
+      if (tryCall("transitionTo(route)", function () { return router.transitionTo(route); })) { await wait(250); return "opened with transitionTo"; }
+    }
+    if (router && typeof router.push === "function") {
+      if (tryCall("push(route)", function () { return router.push(route); })) { await wait(250); return "opened with push"; }
+    }
+    var jumper = findByProps("jumpToMessage") || findByProps("jumpToMessageId");
+    if (jumper && typeof jumper.jumpToMessage === "function") {
+      if (tryCall("jumpToMessage", function () { return jumper.jumpToMessage({ channelId: channelId, guildId: guildId === "@me" ? null : guildId }); })) { await wait(250); return "opened with jumpToMessage"; }
+    }
+    var dispatcher = findByProps("dispatch", "subscribe");
+    if (dispatcher && typeof dispatcher.dispatch === "function") {
+      if (tryCall("dispatch CHANNEL_SELECT", function () { dispatcher.dispatch({ type: "CHANNEL_SELECT", channelId: channelId, guildId: guildId === "@me" ? null : guildId }); })) { await wait(250); return "selected with dispatcher"; }
+    }
+    return "open unavailable" + (attempts.length ? " (" + attempts.slice(0, 2).join("; ") + ")" : "");
+  }
+
   async function getRemoteMessages(channelId, totalLimit) {
     var all = [];
     var before = null;
@@ -385,6 +428,8 @@
     var limit = Math.max(max, Math.min(800, Number(storage.fetchLimit) || 500));
     if (!channelId) throw new Error("Pick a loaded channel, or open the channel in Discord once so the plugin can see it.");
     status.http = false; status.cache = !!storage.savedAt;
+    var openStatus = "not opened";
+    if (force && storage.openBeforeForceLoad !== false) openStatus = await openChannelFast(channelId);
     var remote = await getRemoteMessages(channelId, limit);
     fetchedChannels[String(channelId)] = true;
     var media = collectMedia(remote, max);
@@ -394,7 +439,7 @@
     if (savedChannel && (savedChannel.guild_id || savedChannel.guildId)) storage.savedGuildId = String(savedChannel.guild_id || savedChannel.guildId);
     storage.savedAt = new Date().toISOString();
     status.cache = true;
-    return { channelId: channelId, media: media, source: "fresh history" };
+    return { channelId: channelId, media: media, source: "fresh history", openStatus: openStatus };
   }
 
   function copyUrl(url) { try { if (RN.Clipboard && RN.Clipboard.setString) { RN.Clipboard.setString(url); toast("Media URL copied"); return; } } catch (e) {} toast("Clipboard unavailable"); }
@@ -502,9 +547,18 @@
       try {
         var result = await loadMedia(storage.selectedChannelId, storage.forceLoadChannels);
         setHidden(false);
-        setGuilds(getGuildRows(guildSearch)); setChannels(getChannelRows(channelSearch)); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media to cache from " + result.source + ". Channel: " + result.channelId);
+        setGuilds(getGuildRows(guildSearch)); setChannels(getChannelRows(channelSearch)); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media to cache from " + result.source + ". Open: " + (result.openStatus || "not opened") + ". Channel: " + result.channelId);
       }
       catch (e) { setMessage(e && e.message ? e.message : String(e)); }
+      setLoading(false);
+    }
+    async function openSelectedNow() {
+      setLoading(true); setMessage("Opening selected channel...");
+      try {
+        var id = storage.selectedChannelId || storage.lastChannelId || rememberCurrentChannel();
+        var result = await openChannelFast(id);
+        setMessage("Open: " + result + ". Channel: " + (id || "none"));
+      } catch (e) { setMessage(e && e.message ? e.message : String(e)); }
       setLoading(false);
     }
     function numberBox(label, key) {
@@ -539,11 +593,14 @@
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.32"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.34"),
       React.createElement(Pressable, { accessibilityRole: "button", onPress: function () { setMessage("Hi!"); toast("Hi!"); }, style: { padding: 12, marginTop: 10, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Hi")),
       storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: refreshGuild, style: { padding: 12, marginTop: 12, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Force Load Server Channels")) : null,
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Server: " + (storage.selectedGuildId || storage.savedGuildId || getCurrentGuildId() || "none") + " | Channel: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
+      React.createElement(Pressable, { accessibilityRole: "switch", accessibilityState: { checked: storage.forceLoadChannels }, onPress: function () { storage.forceLoadChannels = !storage.forceLoadChannels; bump(); }, style: { padding: 10, marginTop: 12, borderRadius: 8, backgroundColor: storage.forceLoadChannels ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white" } }, "Force load channels: " + (storage.forceLoadChannels ? "ON" : "OFF"))),
+      storage.forceLoadChannels ? React.createElement(Pressable, { accessibilityRole: "switch", accessibilityState: { checked: storage.openBeforeForceLoad !== false }, onPress: function () { storage.openBeforeForceLoad = storage.openBeforeForceLoad === false; bump(); }, style: { padding: 10, marginTop: 8, borderRadius: 8, backgroundColor: storage.openBeforeForceLoad !== false ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white" } }, "Open channel before scan: " + (storage.openBeforeForceLoad !== false ? "ON" : "OFF"))) : null,
+      storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: openSelectedNow, style: { padding: 12, marginTop: 8, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Open Selected Channel Now")) : null,
       storage.forceLoadChannels ? React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose server", accessibilityState: { expanded: guildPickerOpen }, onPress: function () { setGuilds(getGuildRows(guildSearch)); setGuildPickerOpen(!guildPickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (guildPickerOpen ? "▴ Server: " : "▾ Server: ") + selectedGuildName)) : null,
       storage.forceLoadChannels && guildPickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
         TextInput ? React.createElement(TextInput, { placeholder: "Search servers", placeholderTextColor: "#777", value: guildSearch, onChangeText: function (value) { setGuildSearch(value); setGuilds(getGuildRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 6 } }) : null,
@@ -554,8 +611,7 @@
       ) : null,
       React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ Channel: " : "▾ Channel: ") + selectedName)),
       pickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
-      React.createElement(Pressable, { accessibilityRole: "switch", accessibilityState: { checked: storage.forceLoadChannels }, onPress: function () { storage.forceLoadChannels = !storage.forceLoadChannels; bump(); }, style: { padding: 10, marginTop: 8, borderRadius: 8, backgroundColor: storage.forceLoadChannels ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white" } }, "Force load channels: " + (storage.forceLoadChannels ? "ON" : "OFF"))),
-      React.createElement(Text, { style: { color: "#aaa", marginTop: 6 } }, storage.forceLoadChannels ? "Choose a server, choose a channel, then run the scan to fetch and save media to cache." : "Only loaded channels are listed. Enable Force load to choose a server and fetch another channel."),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 6 } }, storage.forceLoadChannels ? "Choose a server and channel. The scan will switch to that channel first, then grab media as soon as Discord starts loading it." : "Only loaded channels are listed. Enable Force load to choose a server and include channels without loaded messages."),
       TextInput ? React.createElement(TextInput, { placeholder: storage.forceLoadChannels ? "Search channels in selected server" : "Search loaded channels", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
       React.createElement(ScrollView, { nestedScrollEnabled: true, keyboardShouldPersistTaps: "handled", style: { maxHeight: 280, marginTop: 2 } },
         channels.map(channelRow),
