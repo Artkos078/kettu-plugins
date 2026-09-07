@@ -1,0 +1,9 @@
+{
+  "name": "Video Skip Gestures",
+  "description": "Adds fullscreen iOS-style double-tap video seeking: left rewinds and right skips forward using Discord's own video controls.",
+  "authors": [{"name":"ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_play_24px"},
+  "hash": "video-skip-gestures-v1-36248d9e027dc78ebf5616a61e0f3c8eacdaea50",
+  "version": "1.0.0"
+}
