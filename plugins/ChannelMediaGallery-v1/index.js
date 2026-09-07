@@ -23,6 +23,7 @@
   if (storage.filterMode == null) storage.filterMode = "all";
   if (storage.lastChannelId == null) storage.lastChannelId = null;
   if (storage.selectedChannelId == null) storage.selectedChannelId = null;
+  if (storage.selectedGuildId == null) storage.selectedGuildId = null;
   if (storage.forceLoadChannels == null) storage.forceLoadChannels = false;
   if (storage.nsfwChannelsOnly == null) storage.nsfwChannelsOnly = false;
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
@@ -33,6 +34,10 @@
     status.last = String(message);
     try { if (toastApi.showToast) toastApi.showToast(String(message)); else if (ui.showToast) ui.showToast(String(message)); } catch (e) {}
     try { console.log("[Channel Media Gallery]", message); } catch (e) {}
+  }
+
+  function delay(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
   }
 
   function asArray(collection) {
@@ -97,6 +102,103 @@
     return null;
   }
 
+  function getChannelStore() {
+    return findByProps("getChannel", "getChannels") || findByProps("getChannel", "getMutableGuildChannelsForGuild") || findByProps("getChannel");
+  }
+
+  function getGuildStore() {
+    return findByProps("getGuild", "getGuilds") || findByProps("getGuilds") || findByProps("getGuild");
+  }
+
+  function readGuildName(guild) {
+    if (!guild) return "";
+    return String(guild.name || guild.rawName || guild.id || "");
+  }
+
+  function getCurrentGuildId() {
+    var channel = getChannel(storage.selectedChannelId) || getChannel(storage.lastChannelId || getCurrentChannelId());
+    return channel ? String(channel.guild_id || channel.guildId || "") : "";
+  }
+
+  function getGuild(guildId) {
+    if (!guildId) return null;
+    var GuildStore = getGuildStore();
+    try { if (GuildStore && typeof GuildStore.getGuild === "function") return GuildStore.getGuild(String(guildId)); } catch (e) {}
+    try {
+      if (GuildStore && typeof GuildStore.getGuilds === "function") {
+        var guilds = GuildStore.getGuilds();
+        return guilds && (guilds[String(guildId)] || guilds[guildId]) || null;
+      }
+    } catch (e2) {}
+    return null;
+  }
+
+  function selectedGuildId() {
+    var saved = storage.selectedGuildId || storage.savedGuildId;
+    if (saved && getGuild(saved)) return String(saved);
+    var current = getCurrentGuildId();
+    if (current) return current;
+    return saved ? String(saved) : "";
+  }
+
+  function getGuildRows(search) {
+    var rows = [];
+    var seen = {};
+    var query = String(search || "").trim().toLowerCase();
+    function add(guild, source) {
+      if (!guild || !guild.id || seen[guild.id]) return;
+      var name = readGuildName(guild);
+      if (query && String(guild.id).indexOf(query) === -1 && name.toLowerCase().indexOf(query) === -1) return;
+      seen[guild.id] = true;
+      rows.push({ id: String(guild.id), name: name || String(guild.id), source: source || "server" });
+    }
+    add(getGuild(storage.selectedGuildId), "selected");
+    add(getGuild(storage.savedGuildId), "saved");
+    add(getGuild(getCurrentGuildId()), "current");
+    var GuildStore = getGuildStore();
+    try {
+      if (GuildStore && typeof GuildStore.getGuilds === "function") {
+        var guilds = GuildStore.getGuilds();
+        asArray(guilds).forEach(function (guild) { add(guild, "server"); });
+        if (guilds && typeof guilds === "object") Object.keys(guilds).forEach(function (key) { add(guilds[key], "server"); });
+      }
+    } catch (e) {}
+    rows.sort(function (a, b) {
+      if (a.id === storage.selectedGuildId) return -1;
+      if (b.id === storage.selectedGuildId) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    return rows.slice(0, 80);
+  }
+
+  function collectChannelObjects(value, out) {
+    if (!value) return out;
+    if (Array.isArray(value)) { value.forEach(function (item) { collectChannelObjects(item, out); }); return out; }
+    if (value.channel) collectChannelObjects(value.channel, out);
+    if (value.id) out.push(value);
+    ["channels", "guildChannels", "selectableChannelIds", "voiceChannelIds", "rows", "items"].forEach(function (key) {
+      if (value[key]) collectChannelObjects(value[key], out);
+    });
+    return out;
+  }
+
+  function getGuildChannels(guildId) {
+    var out = [];
+    var ChannelStore = getChannelStore();
+    try {
+      if (guildId && ChannelStore && typeof ChannelStore.getMutableGuildChannelsForGuild === "function") collectChannelObjects(ChannelStore.getMutableGuildChannelsForGuild(String(guildId)), out);
+    } catch (e) {}
+    try {
+      if (ChannelStore && typeof ChannelStore.getChannels === "function") {
+        var all = ChannelStore.getChannels();
+        collectChannelObjects(all, out);
+        if (all && typeof all === "object") Object.keys(all).forEach(function (key) { collectChannelObjects(all[key], out); });
+      }
+    } catch (e2) {}
+    if (!guildId) return out;
+    return out.filter(function (channel) { return String(channel.guild_id || channel.guildId || "") === String(guildId); });
+  }
+
   function isNsfwChannel(channel) {
     if (!channel) return false;
     if (channel.nsfw === true) return true;
@@ -132,8 +234,11 @@
     var rows = [];
     var seen = {};
     var query = String(search || "").trim().toLowerCase();
+    var forcedGuildId = storage.forceLoadChannels ? selectedGuildId() : "";
     function add(channel, source) {
       if (!isLoadedSelectableChannel(channel, source) || seen[channel.id]) return;
+      var guildId = String(channel.guild_id || channel.guildId || "");
+      if (forcedGuildId && guildId && guildId !== forcedGuildId) return;
       var nsfw = isNsfwChannel(channel);
       if (storage.nsfwChannelsOnly && !nsfw) return;
       var name = readChannelName(channel);
@@ -142,7 +247,8 @@
       rows.push({
         id: String(channel.id),
         name: name || String(channel.id),
-        guildId: String(channel.guild_id || channel.guildId || ""),
+        guildId: guildId,
+        guildName: readGuildName(getGuild(guildId)),
         nsfw: nsfw,
         source: channelHasLoadedMessages(channel.id) ? "loaded" : "fetch on scan"
       });
@@ -150,36 +256,15 @@
     add(getChannel(storage.selectedChannelId), "selected");
     add(getChannel(storage.savedChannelId), "saved");
     add(getChannel(storage.lastChannelId || getCurrentChannelId()), "current");
-    var ChannelStore = findByProps("getChannel", "getChannels") || findByProps("getChannel", "getMutableGuildChannelsForGuild") || findByProps("getChannel");
-    try {
-      if (ChannelStore && typeof ChannelStore.getChannels === "function") {
-        var all = ChannelStore.getChannels();
-        asArray(all).forEach(function (channel) { add(channel, "loaded"); });
-        if (all && typeof all === "object") Object.keys(all).forEach(function (key) {
-          var value = all[key];
-          if (value && value.channel) add(value.channel, "loaded");
-          else add(value, "loaded");
-        });
-      }
-    } catch (e) {}
-    try {
-      if (ChannelStore && typeof ChannelStore.getMutableGuildChannelsForGuild === "function") {
-        var current = getChannel(storage.lastChannelId || getCurrentChannelId());
-        var guildId = current && (current.guild_id || current.guildId);
-        var guildChannels = guildId ? ChannelStore.getMutableGuildChannelsForGuild(guildId) : null;
-        Object.keys(guildChannels || {}).forEach(function (key) {
-          var value = guildChannels[key];
-          var channel = value && value.channel ? value.channel : value;
-          add(channel, "loaded");
-        });
-      }
-    } catch (e2) {}
+    var guildId = forcedGuildId || getCurrentGuildId();
+    getGuildChannels(guildId).forEach(function (channel) { add(channel, "loaded"); });
+    if (!storage.forceLoadChannels && !guildId) getGuildChannels("").forEach(function (channel) { add(channel, "loaded"); });
     rows.sort(function (a, b) {
       if (a.id === storage.selectedChannelId) return -1;
       if (b.id === storage.selectedChannelId) return 1;
       return a.name.localeCompare(b.name);
     });
-    return rows.slice(0, 80);
+    return rows.slice(0, 100);
   }
 
   function isMediaUrl(url) { return /\.(png|jpe?g|gif|webp|bmp|heic|heif|mp4|mov|webm|m4v)(\?|#|$)/i.test(String(url || "")); }
@@ -309,6 +394,8 @@
     if (!media.length) throw new Error(remote.length || cached.length ? "No media found in scanned messages." : "No messages found. Open or scroll that channel once, then run again.");
     storage.savedMedia = media;
     storage.savedChannelId = channelId;
+    var savedChannel = getChannel(channelId);
+    if (savedChannel && (savedChannel.guild_id || savedChannel.guildId)) storage.savedGuildId = String(savedChannel.guild_id || savedChannel.guildId);
     storage.savedAt = new Date().toISOString();
     return { channelId: channelId, media: media, source: remote.length ? "recent history" : "loaded cache" };
   }
@@ -391,17 +478,32 @@
     var items = state[0], setItems = state[1];
     var loadingState = React.useState(false), loading = loadingState[0], setLoading = loadingState[1];
     var msgState = React.useState(storage.savedMedia.length ? "Showing saved gallery. Run again to refresh." : status.last), message = msgState[0], setMessage = msgState[1];
+    var guildSearchState = React.useState(""), guildSearch = guildSearchState[0], setGuildSearch = guildSearchState[1];
+    var guildsState = React.useState(getGuildRows("")), guilds = guildsState[0], setGuilds = guildsState[1];
+    var guildPickerState = React.useState(false), guildPickerOpen = guildPickerState[0], setGuildPickerOpen = guildPickerState[1];
     var channelSearchState = React.useState(""), channelSearch = channelSearchState[0], setChannelSearch = channelSearchState[1];
     var channelsState = React.useState(getChannelRows("")), channels = channelsState[0], setChannels = channelsState[1];
     var pickerState = React.useState(false), pickerOpen = pickerState[0], setPickerOpen = pickerState[1];
+    var selectedGuild = selectedGuildId();
+    var selectedGuildName = readGuildName(getGuild(selectedGuild)) || selectedGuild || "Choose a server";
     var selectedId = storage.selectedChannelId || storage.lastChannelId;
-    var selectedName = readChannelName(getChannel(selectedId)) || selectedId || "Choose a channel";
+    var selectedChannel = getChannel(selectedId);
+    var selectedName = readChannelName(selectedChannel) || selectedId || "Choose a channel";
     var tickState = React.useState(0), tick = tickState[0], setTick = tickState[1];
-    function bump() { setTick(tick + 1); setItems(filtered(storage.savedMedia)); setChannels(getChannelRows(channelSearch)); }
-    function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
+    function bump() { setTick(tick + 1); setItems(filtered(storage.savedMedia)); setGuilds(getGuildRows(guildSearch)); setChannels(getChannelRows(channelSearch)); }
+    function chooseGuild(id) { storage.selectedGuildId = String(id); storage.selectedChannelId = null; setGuildPickerOpen(false); setChannelSearch(""); setChannels(getChannelRows("")); bump(); setMessage("Selected server: " + (readGuildName(getGuild(id)) || String(id))); }
+    function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); var channel = getChannel(id); if (channel && (channel.guild_id || channel.guildId)) storage.selectedGuildId = String(channel.guild_id || channel.guildId); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
     async function runLoad() {
-      setLoading(true); setMessage("Scanning channel media...");
-      try { var result = await loadMedia(storage.selectedChannelId, storage.forceLoadChannels); setChannels(getChannelRows(channelSearch)); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media from " + result.source + ". Channel: " + result.channelId); }
+      setLoading(true);
+      try {
+        for (var wait = 5; wait > 0; wait--) {
+          setMessage("Starting scan in " + wait + "s...");
+          await delay(1000);
+        }
+        setMessage("Scanning channel media...");
+        var result = await loadMedia(storage.selectedChannelId, storage.forceLoadChannels);
+        setGuilds(getGuildRows(guildSearch)); setChannels(getChannelRows(channelSearch)); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media to cache from " + result.source + ". Channel: " + result.channelId);
+      }
       catch (e) { setMessage(e && e.message ? e.message : String(e)); }
       setLoading(false);
     }
@@ -419,11 +521,18 @@
       var active = storage.nsfwChannelsOnly === nsfwOnly;
       return React.createElement(Pressable, { accessibilityRole: "button", accessibilityState: { selected: active }, onPress: function () { storage.nsfwChannelsOnly = nsfwOnly; bump(); }, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 6, marginTop: 8, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
     }
+    function guildRow(guild) {
+      var active = storage.selectedGuildId === guild.id || (!storage.selectedGuildId && selectedGuildId() === guild.id);
+      return React.createElement(Pressable, { key: guild.id, onPress: function () { chooseGuild(guild.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020" } },
+        React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: active ? "900" : "700" } }, guild.name),
+        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, guild.source + " | " + guild.id)
+      );
+    }
     function channelRow(channel) {
       var active = storage.selectedChannelId === channel.id || (!storage.selectedChannelId && storage.lastChannelId === channel.id);
       return React.createElement(Pressable, { key: channel.id, onPress: function () { chooseChannel(channel.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020" } },
-        React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: active ? "900" : "700" } }, (channel.guildId ? "#" : "") + channel.name),
-        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, (channel.nsfw ? "NSFW | " : "") + channel.source + " | " + channel.id)
+        React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: active ? "900" : "700" } }, "#" + channel.name),
+        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, (channel.nsfw ? "NSFW | " : "") + channel.source + (channel.guildName ? " | " + channel.guildName : "") + " | " + channel.id)
       );
     }
     function tile(item, index) {
@@ -435,18 +544,26 @@
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
       React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery"),
-      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel or enable Force load to fetch another channel, then tap media for Discord's normal viewer. Long-press copies URL."),
-      React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Selected: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
-      React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ " : "▾ ") + selectedName + (storage.nsfwChannelsOnly ? " · NSFW only" : ""))),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
+      React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Server: " + (storage.selectedGuildId || storage.savedGuildId || getCurrentGuildId() || "none") + " | Channel: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
+      storage.forceLoadChannels ? React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose server", accessibilityState: { expanded: guildPickerOpen }, onPress: function () { setGuilds(getGuildRows(guildSearch)); setGuildPickerOpen(!guildPickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (guildPickerOpen ? "▴ Server: " : "▾ Server: ") + selectedGuildName)) : null,
+      storage.forceLoadChannels && guildPickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
+        TextInput ? React.createElement(TextInput, { placeholder: "Search servers", placeholderTextColor: "#777", value: guildSearch, onChangeText: function (value) { setGuildSearch(value); setGuilds(getGuildRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 6 } }) : null,
+        React.createElement(ScrollView, { nestedScrollEnabled: true, keyboardShouldPersistTaps: "handled", style: { maxHeight: 220, marginTop: 2 } },
+          guilds.map(guildRow),
+          !guilds.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 10, lineHeight: 18 } }, "No servers found. Open any channel in the server once so Discord adds the server to local state, then Force Load can scan its channels.") : null
+        )
+      ) : null,
+      React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ Channel: " : "▾ Channel: ") + selectedName + (storage.nsfwChannelsOnly ? " · NSFW only" : ""))),
       pickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap" } }, channelFilterButton("All channels", false), channelFilterButton("NSFW channels only", true)),
       React.createElement(Pressable, { accessibilityRole: "switch", accessibilityState: { checked: storage.forceLoadChannels }, onPress: function () { storage.forceLoadChannels = !storage.forceLoadChannels; bump(); }, style: { padding: 10, marginTop: 8, borderRadius: 8, backgroundColor: storage.forceLoadChannels ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white" } }, "Force load channels: " + (storage.forceLoadChannels ? "ON" : "OFF"))),
-      React.createElement(Text, { style: { color: "#aaa", marginTop: 6 } }, storage.forceLoadChannels ? "Choose a channel, then run the scan to fetch its history without opening it." : "Only loaded channels are listed. Enable Force load to choose other channels."),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 6 } }, storage.forceLoadChannels ? "Choose a server, choose a channel, then run the scan to fetch and save media to cache." : "Only loaded channels are listed. Enable Force load to choose a server and fetch another channel."),
       storage.nsfwChannelsOnly && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "No NSFW channels match. Try enabling Force load or changing your search.") : null,
-      TextInput ? React.createElement(TextInput, { placeholder: storage.forceLoadChannels ? "Search channels" : "Search loaded channels", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
+      TextInput ? React.createElement(TextInput, { placeholder: storage.forceLoadChannels ? "Search channels in selected server" : "Search loaded channels", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
       React.createElement(ScrollView, { nestedScrollEnabled: true, keyboardShouldPersistTaps: "handled", style: { maxHeight: 280, marginTop: 2 } },
         channels.map(channelRow),
-        !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 10, lineHeight: 18 } }, "No channels match. Enable Force load to include channels without loaded messages, or change your search.") : null
+        !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 10, lineHeight: 18 } }, storage.forceLoadChannels ? "No channels match in this server. Pick another server, clear search, or open the server once so Discord exposes its channel list." : "No channels match. Enable Force load to choose a server and include channels without loaded messages.") : null
       ),
       ) : null,
       React.createElement(View, { style: { flexDirection: "row", marginTop: 16 } }, numberBox("Max media", "maxMedia"), numberBox("Messages scanned", "fetchLimit")),
