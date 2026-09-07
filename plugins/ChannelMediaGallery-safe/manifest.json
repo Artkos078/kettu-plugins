@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery Safe",
-  "description": "Safe-storage Kettu channel media gallery with config compatibility, saved media, filters, previews, and native modal opening.",
+  "description": "Safe-storage Kettu channel media gallery with small loader and config compatibility.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-safe-1.1.25",
-  "version": "1.1.25"
+  "hash": "channel-media-gallery-safe-1.1.26-small-loader",
+  "version": "1.1.26"
 }
