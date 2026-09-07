@@ -1,0 +1,9 @@
+{
+  "name": "NativeVideoPlayer v2.1",
+  "description": "Opens Discord videos with the iOS media handler without also opening Discord's media viewer.",
+  "authors": [{"name":"Artkos078"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_play_24px"},
+  "hash": "kettu-native-video-player-v2.1-close-fix",
+  "version": "2.1.0"
+}
