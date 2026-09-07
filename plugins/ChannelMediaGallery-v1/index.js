@@ -14,7 +14,8 @@
   var ui = V.ui || {};
   var toastApi = ui.toasts || {};
   var storageRoot = (V.plugin && V.plugin.storage) || V.storage || {};
-  var storage = storageRoot.channelMediaGallery || (storageRoot.channelMediaGallery = {});
+  if (!storageRoot.channelMediaGallery) storageRoot.channelMediaGallery = {};
+  var storage = storageRoot.channelMediaGallery;
   var timer = null;
   var fetchedChannels = {};
   var remoteChannels = {};
@@ -28,7 +29,7 @@
   if (storage.forceLoadChannels == null) storage.forceLoadChannels = false;
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
 
-  var status = { http: false, cache: false, last: "Not loaded" };
+  var status = { http: false, cache: !!storage.savedAt, last: "Not loaded" };
 
   function toast(message) {
     status.last = String(message);
@@ -383,7 +384,7 @@
     var max = Math.max(1, Math.min(500, Number(storage.maxMedia) || 200));
     var limit = Math.max(max, Math.min(800, Number(storage.fetchLimit) || 500));
     if (!channelId) throw new Error("Pick a loaded channel, or open the channel in Discord once so the plugin can see it.");
-    status.http = false; status.cache = false;
+    status.http = false; status.cache = !!storage.savedAt;
     var remote = await getRemoteMessages(channelId, limit);
     fetchedChannels[String(channelId)] = true;
     var media = collectMedia(remote, max);
@@ -392,6 +393,7 @@
     var savedChannel = getChannel(channelId);
     if (savedChannel && (savedChannel.guild_id || savedChannel.guildId)) storage.savedGuildId = String(savedChannel.guild_id || savedChannel.guildId);
     storage.savedAt = new Date().toISOString();
+    status.cache = true;
     return { channelId: channelId, media: media, source: "fresh history" };
   }
 
@@ -537,7 +539,8 @@
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.12"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.13"),
+      React.createElement(Pressable, { accessibilityRole: "button", onPress: function () { setMessage("Hi!"); toast("Hi!"); }, style: { padding: 12, marginTop: 10, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Hi")),
       storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: refreshGuild, style: { padding: 12, marginTop: 12, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Force Load Server Channels")) : null,
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Server: " + (storage.selectedGuildId || storage.savedGuildId || getCurrentGuildId() || "none") + " | Channel: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
