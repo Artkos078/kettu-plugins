@@ -1,9 +1,0 @@
-{
-  "name": "PanicNav Floating v1.2",
-  "description": "Movable floating Back, Home, and Panic controls injected into Discord's main StackNavigator in Kettu.",
-  "authors": [{"name":"ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon":"ic_arrow_back_24px"},
-  "hash": "panicnav-v1.2-stacknavigator-1fc22edb10641daa904179f9f9729e8b180e7a3a",
-  "version": "1.2.0"
-}

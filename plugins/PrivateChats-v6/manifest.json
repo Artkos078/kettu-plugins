@@ -1,9 +1,0 @@
-{
-  "name": "PrivateChats v6",
-  "description": "Hide selected DMs and servers with a passcode. Remembers the last chat while you navigate to settings.",
-  "authors": [{"name":"ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon":"ic_lock_24px"},
-  "hash": "v6-last-chat-memory",
-  "version": "0.6.0"
-}

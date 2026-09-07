@@ -1,9 +1,0 @@
-{
-  "name": "PanicNav",
-  "description": "Movable floating Back, Home, and Panic controls that stay visible across Discord in Kettu.",
-  "authors": [{"name":"ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon":"ic_arrow_back_24px"},
-  "hash": "panicnav-v1.1-b69f1280dd79dc9362059f97563ce8bf83b76e14",
-  "version": "1.1.0"
-}

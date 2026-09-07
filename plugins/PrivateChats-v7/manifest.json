@@ -1,9 +1,0 @@
-{
-  "name": "PrivateChats v7",
-  "description": "Hide selected DMs and servers with a passcode. Long-press a DM or server and choose Protect.",
-  "authors": [{"name":"ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon":"ic_lock_24px"},
-  "hash": "606aad7815fde379b43a48ed45a2be881e5d4ebcb2fd1e523e4b5379e8f7e440",
-  "version": "0.7.0"
-}

@@ -1,9 +1,0 @@
-{
-  "name": "PrivateChats v4",
-  "description": "Hide selected DMs and servers until you manually unlock them with a passcode. Fully configurable in-app.",
-  "authors": [{"name": "ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon": "ic_lock_24px"},
-  "hash": "76a75e2d4e02d73a7d34606c230ae5b1d6706c44-v4",
-  "version": "0.4.1"
-}
