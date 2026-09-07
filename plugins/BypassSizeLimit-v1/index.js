@@ -10,14 +10,19 @@
   var storage = (V.plugin && V.plugin.storage) || {};
 
   var originalFetch = null;
+  var originalXhrOpen = null;
+  var originalXhrSend = null;
   var patched = false;
+  var xhrPatched = false;
   var uploadByUrl = {};
   var uploadByName = {};
   var stats = storage.bypassSizeLimitStats || {
     patched: false,
+    xhrPatched: false,
     slots: 0,
     bodies: 0,
     messages: 0,
+    seen: 0,
     last: "Not loaded"
   };
   storage.bypassSizeLimitStats = stats;
@@ -51,6 +56,11 @@
     if (typeof input === "string") return input;
     if (input && typeof input.url === "string") return input.url;
     return "";
+  }
+
+  function markSeen(kind, url) {
+    stats.seen += 1;
+    stats.last = kind + ": " + String(url).slice(0, 90);
   }
 
   function methodOf(input, init) {
@@ -180,7 +190,8 @@
   }
 
   function patchFetch() {
-    if (patched || typeof globalThis.fetch !== "function") return false;
+    if (patched) return true;
+    if (typeof globalThis.fetch !== "function") return false;
     originalFetch = globalThis.fetch;
     globalThis.fetch = async function (input, init) {
       var url = urlOf(input);
@@ -189,16 +200,19 @@
       var nextInit = init;
       try {
         if (method === "POST" && ATTACHMENTS_RE.test(url)) {
+          markSeen("fetch attachments", url);
           nextInit = cloneInit(input, init, patchAttachmentSlotBody(body));
           var slotResponse = await originalFetch.call(this, input, nextInit);
           rememberUploadResponse(slotResponse);
           return slotResponse;
         }
         if (method === "PUT" && uploadByUrl[url]) {
+          markSeen("fetch upload", url);
           nextInit = cloneInit(input, init, await appendMagicBytes(body));
           return originalFetch.call(this, input, nextInit);
         }
         if (method === "POST" && MESSAGES_RE.test(url)) {
+          markSeen("fetch message", url);
           nextInit = cloneInit(input, init, patchMessageBody(body));
           return originalFetch.call(this, input, nextInit);
         }
@@ -212,11 +226,80 @@
     return true;
   }
 
+  function patchXhr() {
+    var XHR = globalThis.XMLHttpRequest;
+    if (xhrPatched) return true;
+    if (!XHR || !XHR.prototype || !XHR.prototype.open || !XHR.prototype.send) return false;
+
+    originalXhrOpen = XHR.prototype.open;
+    originalXhrSend = XHR.prototype.send;
+
+    XHR.prototype.open = function (method, url) {
+      this.__bslMethod = String(method || "GET").toUpperCase();
+      this.__bslUrl = String(url || "");
+      return originalXhrOpen.apply(this, arguments);
+    };
+
+    XHR.prototype.send = function (body) {
+      var xhr = this;
+      var url = String(xhr.__bslUrl || "");
+      var method = String(xhr.__bslMethod || "GET").toUpperCase();
+
+      try {
+        if (method === "POST" && ATTACHMENTS_RE.test(url)) {
+          markSeen("xhr attachments", url);
+          body = patchAttachmentSlotBody(body);
+          xhr.addEventListener("load", function () {
+            try {
+              var json = JSON.parse(String(xhr.responseText || ""));
+              var attachments = json && json.attachments;
+              if (!Array.isArray(attachments)) return;
+              attachments.forEach(function (att) {
+                var meta = uploadByName[String(att.filename || "")];
+                if (!meta) return;
+                if (att.upload_url) uploadByUrl[String(att.upload_url)] = meta;
+                if (att.upload_filename) uploadByName[String(att.upload_filename)] = meta;
+              });
+            } catch (e) {}
+          });
+        } else if (method === "PUT" && uploadByUrl[url]) {
+          markSeen("xhr upload", url);
+          appendMagicBytes(body).then(function (patchedBody) {
+            originalXhrSend.call(xhr, patchedBody);
+          }).catch(function (e) {
+            toast("xhr upload patch error: " + (e && e.message ? e.message : e));
+            originalXhrSend.call(xhr, body);
+          });
+          return;
+        } else if (method === "POST" && MESSAGES_RE.test(url)) {
+          markSeen("xhr message", url);
+          body = patchMessageBody(body);
+        }
+      } catch (e) {
+        toast("xhr error: " + (e && e.message ? e.message : e));
+      }
+
+      return originalXhrSend.call(xhr, body);
+    };
+
+    xhrPatched = true;
+    stats.xhrPatched = true;
+    return true;
+  }
+
   function unpatchFetch() {
     if (patched && originalFetch) globalThis.fetch = originalFetch;
+    if (xhrPatched && originalXhrOpen && globalThis.XMLHttpRequest) {
+      globalThis.XMLHttpRequest.prototype.open = originalXhrOpen;
+      globalThis.XMLHttpRequest.prototype.send = originalXhrSend;
+    }
     patched = false;
+    xhrPatched = false;
     stats.patched = false;
+    stats.xhrPatched = false;
     originalFetch = null;
+    originalXhrOpen = null;
+    originalXhrSend = null;
     uploadByUrl = {};
     uploadByName = {};
   }
@@ -229,6 +312,8 @@
       React.createElement(Text, { style: { color: "white", fontSize: 22, fontWeight: "800" } }, "Bypass Size Limit"),
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Send one large MP4 normally. This patches Discord's upload calls as they happen."),
       React.createElement(Text, { style: { color: stats.patched ? "#6fdc8c" : "#ffb86b", marginTop: 14 } }, "Fetch patch: " + (stats.patched ? "active" : "inactive")),
+      React.createElement(Text, { style: { color: stats.xhrPatched ? "#6fdc8c" : "#ffb86b", marginTop: 4 } }, "XHR patch: " + (stats.xhrPatched ? "active" : "inactive")),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 8 } }, "Upload calls seen: " + stats.seen),
       React.createElement(Text, { style: { color: "#ccc", marginTop: 8 } }, "Slots patched: " + stats.slots),
       React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Upload bodies patched: " + stats.bodies),
       React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Messages patched: " + stats.messages),
@@ -237,8 +322,10 @@
   }
 
   function onLoad() {
-    if (patchFetch()) toast("Bypass Size Limit loaded");
-    else toast("Bypass Size Limit failed: fetch unavailable");
+    var fetchOk = patchFetch();
+    var xhrOk = patchXhr();
+    if (fetchOk || xhrOk) toast("Bypass Size Limit loaded");
+    else toast("Bypass Size Limit failed: no network patch available");
   }
 
   function onUnload() {
