@@ -66,10 +66,13 @@ function GestureLayer(props){
     }else ref.current=now;
   }
 
-  var hitStyle={position:'absolute',top:72,bottom:72,backgroundColor:'transparent'};
+  // Keep gesture receivers confined to the center of the media viewer.
+  // The top/bottom 30% and middle 50% horizontally are completely untouched,
+  // so Discord's X, menus, seek bar and other controls receive taps normally.
+  var hitStyle={position:'absolute',top:'30%',bottom:'30%',backgroundColor:'transparent'};
   return React.createElement(View,{pointerEvents:'box-none',style:{position:'absolute',left:0,right:0,top:0,bottom:0,zIndex:40,elevation:40}},
-    React.createElement(Pressable,{pointerEvents:'auto',onPress:function(){doubleTap(-1);},style:Object.assign({},hitStyle,{left:0,width:'30%'}),accessibilityLabel:'Rewind '+pstore.seconds+' seconds'}),
-    React.createElement(Pressable,{pointerEvents:'auto',onPress:function(){doubleTap(1);},style:Object.assign({},hitStyle,{right:0,width:'30%'}),accessibilityLabel:'Forward '+pstore.seconds+' seconds'})
+    React.createElement(Pressable,{pointerEvents:'auto',onPress:function(){doubleTap(-1);},style:Object.assign({},hitStyle,{left:0,width:'25%'}),accessibilityLabel:'Rewind '+pstore.seconds+' seconds'}),
+    React.createElement(Pressable,{pointerEvents:'auto',onPress:function(){doubleTap(1);},style:Object.assign({},hitStyle,{right:0,width:'25%'}),accessibilityLabel:'Forward '+pstore.seconds+' seconds'})
   );
 }
 
@@ -117,7 +120,7 @@ function Settings(){
     React.createElement(Text,{style:{color:status.overlay?'#6fdc8c':'#ffb86b',marginTop:12}},'Media overlay hook: '+(status.overlay?'OK':'missing')),
     React.createElement(View,{style:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:18}},React.createElement(Text,{style:{color:'white'}},'Enable double-tap skip'),React.createElement(Switch,{value:pstore.enabled!==false,onValueChange:function(v){pstore.enabled=v;bump();}})),
     row('Skip amount in seconds','seconds'),row('Double-tap window in ms','doubleTapMs'),
-    React.createElement(Text,{style:{color:'#777',marginTop:18,marginBottom:30}},'Top and bottom control bars are excluded from the gesture layer so the X and playback controls stay tappable.')
+    React.createElement(Text,{style:{color:'#777',marginTop:18,marginBottom:30}},'Gesture zones are limited to the center 40% vertically and outer 25% horizontally. The X and control bars are outside the touch layer.')
   );
 }
 function onLoad(){patchMediaOverlay();toast(status.overlay?'Kettu media gestures loaded':'Kettu media gestures: overlay hook missing');}
