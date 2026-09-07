@@ -1,9 +1,9 @@
 {
   "name": "Kettu Media Gestures",
-  "description": "Adds double-tap rewind/forward to Kettu's Discord media viewer while keeping the close and playback controls clickable.",
+  "description": "Adds double-tap rewind/forward and swipe-down-to-close to Kettu's Discord media viewer while keeping the normal controls accessible.",
   "authors": [{"name":"Artkos078"}],
   "main": "index.js",
   "vendetta": {"icon":"ic_play_24px"},
-  "hash": "kettu-media-gestures-v3.2-x-control-safe",
-  "version": "3.2.0"
+  "hash": "kettu-media-gestures-v3.3-swipe-down-close",
+  "version": "3.3.0"
 }
