@@ -36,7 +36,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js',{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.11&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
