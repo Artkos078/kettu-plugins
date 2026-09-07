@@ -21,9 +21,37 @@ function readLocalCache(){try{if(globalThis.localStorage){var v=globalThis.local
 function writeLocalCache(value){try{if(globalThis.localStorage)globalThis.localStorage.setItem(SERVER_CACHE_KEY,JSON.stringify(value));}catch(e){}}
 function clearLocalCache(){try{if(globalThis.localStorage)globalThis.localStorage.removeItem(SERVER_CACHE_KEY);}catch(e){}}
 function storageBox(){try{if(V.storage&&typeof V.storage==='object')return V.storage;}catch(e){}return null;}
-function readVendettaCache(){try{var box=storageBox();return box&&box[SERVER_CACHE_KEY]||null;}catch(e){return null;}}
-function writeVendettaCache(value){try{var box=storageBox();if(box)box[SERVER_CACHE_KEY]=value;}catch(e){}}
-function clearVendettaCache(){try{var box=storageBox();if(box)delete box[SERVER_CACHE_KEY];}catch(e){}}
+function readVendettaCache(){
+  try{
+    var box=storageBox();
+    if(!box)return null;
+    if(box[SERVER_CACHE_KEY])return box[SERVER_CACHE_KEY];
+    if(box.channelMediaGalleryServerCache&&box.channelMediaGalleryServerCache[SERVER_CACHE_GUILD_ID])return box.channelMediaGalleryServerCache[SERVER_CACHE_GUILD_ID];
+    if(box.channelMediaGallery&&box.channelMediaGallery.persistentServerCache&&box.channelMediaGallery.persistentServerCache[SERVER_CACHE_GUILD_ID])return box.channelMediaGallery.persistentServerCache[SERVER_CACHE_GUILD_ID];
+  }catch(e){}
+  return null;
+}
+function writeVendettaCache(value){
+  try{
+    var box=storageBox();
+    if(!box)return;
+    box[SERVER_CACHE_KEY]=value;
+    if(!box.channelMediaGalleryServerCache)box.channelMediaGalleryServerCache={};
+    box.channelMediaGalleryServerCache[SERVER_CACHE_GUILD_ID]=value;
+    if(!box.channelMediaGallery)box.channelMediaGallery={};
+    if(!box.channelMediaGallery.persistentServerCache)box.channelMediaGallery.persistentServerCache={};
+    box.channelMediaGallery.persistentServerCache[SERVER_CACHE_GUILD_ID]=value;
+  }catch(e){}
+}
+function clearVendettaCache(){
+  try{
+    var box=storageBox();
+    if(!box)return;
+    delete box[SERVER_CACHE_KEY];
+    if(box.channelMediaGalleryServerCache)delete box.channelMediaGalleryServerCache[SERVER_CACHE_GUILD_ID];
+    if(box.channelMediaGallery&&box.channelMediaGallery.persistentServerCache)delete box.channelMediaGallery.persistentServerCache[SERVER_CACHE_GUILD_ID];
+  }catch(e){}
+}
 var persistentBridge={
   load:function(){return readVendettaCache()||readLocalCache()||null;},
   save:function(value){writeVendettaCache(value);writeLocalCache(value);},
@@ -49,7 +77,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.35&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.36&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
