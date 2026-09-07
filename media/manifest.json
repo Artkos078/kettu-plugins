@@ -4,6 +4,6 @@
   "authors": [{"name":"Artkos078"}],
   "main": "index.js",
   "vendetta": {"icon":"ic_play_24px"},
-  "hash": "kettu-media-gestures-v3.1-control-safe",
-  "version": "3.1.0"
+  "hash": "kettu-media-gestures-v3.2-x-control-safe",
+  "version": "3.2.0"
 }
