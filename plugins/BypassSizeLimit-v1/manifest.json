@@ -1,7 +1,7 @@
 {
   "id": "kettu.bypass-size-limit",
   "name": "Bypass Size Limit v1",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Uploads large Kettu mobile files to Catbox or Litterbox and sends a link in the current chat.",
   "authors": [
     {
@@ -13,6 +13,6 @@
   "vendetta": {
     "icon": "ic_upload_24px"
   },
-  "hash": "bypass-size-limit-v1-1.1.0",
+  "hash": "bypass-size-limit-v1-1.1.1-safe-storage",
   "license": "MIT"
 }
