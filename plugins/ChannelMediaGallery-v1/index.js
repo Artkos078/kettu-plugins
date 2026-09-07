@@ -324,9 +324,12 @@
     var msgState = React.useState(storage.savedMedia.length ? "Showing saved gallery. Run again to refresh." : status.last), message = msgState[0], setMessage = msgState[1];
     var channelSearchState = React.useState(""), channelSearch = channelSearchState[0], setChannelSearch = channelSearchState[1];
     var channelsState = React.useState(getChannelRows("")), channels = channelsState[0], setChannels = channelsState[1];
+    var pickerState = React.useState(false), pickerOpen = pickerState[0], setPickerOpen = pickerState[1];
+    var selectedId = storage.selectedChannelId || storage.lastChannelId;
+    var selectedName = readChannelName(getChannel(selectedId)) || selectedId || "Choose a channel";
     var tickState = React.useState(0), tick = tickState[0], setTick = tickState[1];
     function bump() { setTick(tick + 1); setItems(filtered(storage.savedMedia)); setChannels(getChannelRows(channelSearch)); }
-    function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); bump(); setMessage("Selected channel: " + String(id)); }
+    function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
     async function runLoad() {
       setLoading(true); setMessage("Scanning channel media...");
       try { var result = await loadMedia(storage.selectedChannelId); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media from " + result.source + ". Channel: " + result.channelId); }
@@ -349,7 +352,7 @@
     }
     function channelRow(channel) {
       var active = storage.selectedChannelId === channel.id || (!storage.selectedChannelId && storage.lastChannelId === channel.id);
-      return React.createElement(Pressable, { key: channel.id, onPress: function () { chooseChannel(channel.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginRight: 8, marginTop: 8, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020", maxWidth: 230 } },
+      return React.createElement(Pressable, { key: channel.id, onPress: function () { chooseChannel(channel.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020" } },
         React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: active ? "900" : "700" } }, (channel.guildId ? "#" : "") + channel.name),
         React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, (channel.nsfw ? "NSFW | " : "") + channel.source + " | " + channel.id)
       );
@@ -372,13 +375,16 @@
       React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery"),
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel here, scan it, then tap media for Discord's normal viewer. Long-press copies URL."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Selected: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
+      React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ " : "▾ ") + selectedName + (storage.nsfwChannelsOnly ? " · NSFW only" : ""))),
+      pickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap" } }, channelFilterButton("All channels", false), channelFilterButton("NSFW channels only", true)),
       storage.nsfwChannelsOnly && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "No loaded NSFW channels match. Try another search or switch to All channels.") : null,
       TextInput ? React.createElement(TextInput, { placeholder: "Search loaded channels or paste channel ID", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
-      React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 2 } },
+      React.createElement(ScrollView, { nestedScrollEnabled: true, keyboardShouldPersistTaps: "handled", style: { maxHeight: 280, marginTop: 2 } },
         channels.map(channelRow),
         channelSearch && !channels.length && !storage.nsfwChannelsOnly ? React.createElement(Pressable, { onPress: function () { chooseChannel(channelSearch.trim()); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 8, borderRadius: 8, backgroundColor: "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, "Use typed channel ID")) : null
       ),
+      ) : null,
       React.createElement(View, { style: { flexDirection: "row", marginTop: 16 } }, numberBox("Max media", "maxMedia"), numberBox("Messages scanned", "fetchLimit")),
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 8 } }, filterButton("All", "all"), filterButton("Pics", "image"), filterButton("Videos", "video"), filterButton("Embeds", "embed")),
       React.createElement(Pressable, { disabled: loading, onPress: runLoad, style: { marginTop: 16, padding: 13, borderRadius: 8, backgroundColor: loading ? "#444" : "#5865f2", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, loading ? "Scanning..." : "Run Selected Channel Media Scan")),
