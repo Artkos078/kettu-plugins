@@ -104,7 +104,7 @@ function Settings(){
   );
 }
 
-function onLoad(){var ok=installHook();toast(ok?'NativeVideoPlayer v2.1 ready':'NativeVideoPlayer hook missing');}
+function onLoad(){var ok=installHook();if(!ok)toast('NativeVideoPlayer hook missing');}
 function onUnload(){uninstallHook();}
 
 return{onLoad:onLoad,onUnload:onUnload,settings:Settings};
