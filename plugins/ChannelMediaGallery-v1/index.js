@@ -26,7 +26,6 @@
   if (storage.selectedChannelId == null) storage.selectedChannelId = null;
   if (storage.selectedGuildId == null) storage.selectedGuildId = null;
   if (storage.forceLoadChannels == null) storage.forceLoadChannels = false;
-  if (storage.nsfwChannelsOnly == null) storage.nsfwChannelsOnly = false;
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
 
   var status = { http: false, cache: false, last: "Not loaded" };
@@ -201,23 +200,6 @@
     return out.filter(function (channel) { return String(channel.guild_id || channel.guildId || "") === String(guildId); });
   }
 
-  function isNsfwChannel(channel) {
-    if (!channel) return false;
-    if (channel.nsfw === true) return true;
-    if (channel.nsfw_ === true) return true;
-    if (channel.isNsfw === true) return true;
-    if (channel.isNSFW === true) return true;
-    try { if (typeof channel.isNSFW === "function" && channel.isNSFW()) return true; } catch (e) {}
-    try { if (typeof channel.isNsfw === "function" && channel.isNsfw()) return true; } catch (e0) {}
-    var type = channel.type;
-    if (type === 10 || type === 11 || type === 12 || type === "PUBLIC_THREAD" || type === "PRIVATE_THREAD" || type === "ANNOUNCEMENT_THREAD") {
-      var parent = getChannel(channel.parent_id || channel.parentId);
-      if (parent && parent.nsfw === true) return true;
-      try { if (parent && typeof parent.isNSFW === "function") return !!parent.isNSFW(); } catch (e2) {}
-    }
-    return false;
-  }
-
   function channelHasLoadedMessages(channelId) {
     if (!channelId) return false;
     if (fetchedChannels[String(channelId)]) return true;
@@ -245,8 +227,6 @@
       if (!isLoadedSelectableChannel(channel, source) || seen[channel.id]) return;
       var guildId = String(channel.guild_id || channel.guildId || "");
       if (forcedGuildId && guildId && guildId !== forcedGuildId) return;
-      var nsfw = isNsfwChannel(channel);
-      if (storage.nsfwChannelsOnly && !nsfw) return;
       var name = readChannelName(channel);
       if (query && String(channel.id).indexOf(query) === -1 && name.toLowerCase().indexOf(query) === -1) return;
       seen[channel.id] = true;
@@ -255,7 +235,6 @@
         name: name || String(channel.id),
         guildId: guildId,
         guildName: readGuildName(getGuild(guildId)),
-        nsfw: nsfw,
         source: channelHasLoadedMessages(channel.id) ? "loaded" : "fetch on scan"
       });
     }
@@ -404,16 +383,12 @@
     var max = Math.max(1, Math.min(500, Number(storage.maxMedia) || 200));
     var limit = Math.max(max, Math.min(800, Number(storage.fetchLimit) || 500));
     if (!channelId) throw new Error("Pick a loaded channel, or open the channel in Discord once so the plugin can see it.");
-    var selectedMarkedNsfw = storage.selectedChannelId && String(storage.selectedChannelId) === String(channelId) && storage.selectedChannelIsNsfw === true;
-    var savedMarkedNsfw = storage.savedChannelId && String(storage.savedChannelId) === String(channelId) && storage.savedChannelIsNsfw === true;
-    if (storage.nsfwChannelsOnly && !isNsfwChannel(getChannel(channelId)) && !selectedMarkedNsfw && !savedMarkedNsfw) throw new Error("Choose an NSFW channel from the explorer, or switch to All channels.");
     status.http = false; status.cache = false;
     var remote = await getRemoteMessages(channelId, limit);
     fetchedChannels[String(channelId)] = true;
     var media = collectMedia(remote, max);
     storage.savedMedia = media;
     storage.savedChannelId = channelId;
-    storage.savedChannelIsNsfw = !!selectedMarkedNsfw || isNsfwChannel(getChannel(channelId));
     var savedChannel = getChannel(channelId);
     if (savedChannel && (savedChannel.guild_id || savedChannel.guildId)) storage.savedGuildId = String(savedChannel.guild_id || savedChannel.guildId);
     storage.savedAt = new Date().toISOString();
@@ -518,8 +493,8 @@
       catch (e) { setMessage(e.message || String(e)); }
       setLoading(false);
     }
-    function chooseGuild(id) { storage.selectedGuildId = String(id); storage.selectedChannelId = null; storage.selectedChannelIsNsfw = false; setGuildPickerOpen(false); setChannelSearch(""); setChannels(getChannelRows("")); bump(); setMessage("Selected server: " + (readGuildName(getGuild(id)) || String(id))); }
-    function chooseChannel(id, nsfw) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); storage.selectedChannelIsNsfw = nsfw === true || isNsfwChannel(getChannel(id)); var channel = getChannel(id); if (channel && (channel.guild_id || channel.guildId)) storage.selectedGuildId = String(channel.guild_id || channel.guildId); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
+    function chooseGuild(id) { storage.selectedGuildId = String(id); storage.selectedChannelId = null; setGuildPickerOpen(false); setChannelSearch(""); setChannels(getChannelRows("")); bump(); setMessage("Selected server: " + (readGuildName(getGuild(id)) || String(id))); }
+    function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); var channel = getChannel(id); if (channel && (channel.guild_id || channel.guildId)) storage.selectedGuildId = String(channel.guild_id || channel.guildId); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
     async function runLoad() {
       setLoading(true); setMessage("Scanning channel media...");
       try {
@@ -540,10 +515,6 @@
       var active = storage.filterMode === mode;
       return React.createElement(Pressable, { onPress: function () { storage.filterMode = mode; bump(); }, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 6, marginTop: 8, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
     }
-    function channelFilterButton(label, nsfwOnly) {
-      var active = storage.nsfwChannelsOnly === nsfwOnly;
-      return React.createElement(Pressable, { accessibilityRole: "button", accessibilityState: { selected: active }, onPress: function () { storage.nsfwChannelsOnly = nsfwOnly; bump(); }, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 6, marginTop: 8, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
-    }
     function guildRow(guild) {
       var active = storage.selectedGuildId === guild.id || (!storage.selectedGuildId && selectedGuildId() === guild.id);
       return React.createElement(Pressable, { key: guild.id, onPress: function () { chooseGuild(guild.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020" } },
@@ -553,9 +524,9 @@
     }
     function channelRow(channel) {
       var active = storage.selectedChannelId === channel.id || (!storage.selectedChannelId && storage.lastChannelId === channel.id);
-      return React.createElement(Pressable, { key: channel.id, onPress: function () { chooseChannel(channel.id, channel.nsfw); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020" } },
+      return React.createElement(Pressable, { key: channel.id, onPress: function () { chooseChannel(channel.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 6, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020" } },
         React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: active ? "900" : "700" } }, "#" + channel.name),
-        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, (channel.nsfw ? "NSFW | " : "") + channel.source + (channel.guildName ? " | " + channel.guildName : "") + " | " + channel.id)
+        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, channel.source + (channel.guildName ? " | " + channel.guildName : "") + " | " + channel.id)
       );
     }
     function tile(item, index) {
@@ -566,7 +537,7 @@
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.11"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.12"),
       storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: refreshGuild, style: { padding: 12, marginTop: 12, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Force Load Server Channels")) : null,
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Server: " + (storage.selectedGuildId || storage.savedGuildId || getCurrentGuildId() || "none") + " | Channel: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
@@ -578,12 +549,10 @@
           !guilds.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 10, lineHeight: 18 } }, "No servers found. Open any channel in the server once so Discord adds the server to local state, then Force Load can scan its channels.") : null
         )
       ) : null,
-      React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ Channel: " : "▾ Channel: ") + selectedName + (storage.nsfwChannelsOnly ? " · NSFW only" : ""))),
+      React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ Channel: " : "▾ Channel: ") + selectedName)),
       pickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
-      React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap" } }, channelFilterButton("All channels", false), channelFilterButton("NSFW channels only", true)),
       React.createElement(Pressable, { accessibilityRole: "switch", accessibilityState: { checked: storage.forceLoadChannels }, onPress: function () { storage.forceLoadChannels = !storage.forceLoadChannels; bump(); }, style: { padding: 10, marginTop: 8, borderRadius: 8, backgroundColor: storage.forceLoadChannels ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white" } }, "Force load channels: " + (storage.forceLoadChannels ? "ON" : "OFF"))),
       React.createElement(Text, { style: { color: "#aaa", marginTop: 6 } }, storage.forceLoadChannels ? "Choose a server, choose a channel, then run the scan to fetch and save media to cache." : "Only loaded channels are listed. Enable Force load to choose a server and fetch another channel."),
-      storage.nsfwChannelsOnly && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "No NSFW channels match. Try enabling Force load or changing your search.") : null,
       TextInput ? React.createElement(TextInput, { placeholder: storage.forceLoadChannels ? "Search channels in selected server" : "Search loaded channels", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
       React.createElement(ScrollView, { nestedScrollEnabled: true, keyboardShouldPersistTaps: "handled", style: { maxHeight: 280, marginTop: 2 } },
         channels.map(channelRow),
