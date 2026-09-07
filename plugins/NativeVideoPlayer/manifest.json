@@ -1,0 +1,9 @@
+{
+  "name": "NativeVideoPlayer",
+  "description": "Open Discord video attachments and detectable video embeds through iOS's native media URL handler, with Discord fallback.",
+  "authors": [{"name":"ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_play_24px"},
+  "hash": "native-video-player-9d4fb70d07280f4c52788df6fea56eeefb3e018f",
+  "version": "1.0.0"
+}
