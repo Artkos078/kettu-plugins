@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.18-loader-timeout-rerender",
-  "version": "1.1.18"
+  "hash": "channel-media-gallery-v1.1.19-clear-cache-bust",
+  "version": "1.1.19"
 }
