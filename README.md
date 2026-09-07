@@ -1,6 +1,6 @@
-# unbound-plugins
+# kettu-plugins
 
-An [Unbound](https://unbound.rip) addon workspace scaffolded with `ubd create`.
+A Kettu plugin workspace for iOS Discord modifications and custom plugins.
 
 ## Development
 
@@ -9,7 +9,7 @@ bun install
 bun run dev
 ```
 
-`ubd dev` watches every addon under `plugins/` and `themes/`, rebuilding the one you change.
+The workspace watches addons under `plugins/` and rebuilds changed plugins during development.
 
 ## Building
 
@@ -17,10 +17,12 @@ bun run dev
 bun run build
 ```
 
-Builds every addon once into its `dist/` directory.
+Builds plugins into their `dist/` directories.
 
-## Learn more
+## Repository
 
-- Plugins: <https://docs.unbound.rip/plugins/introduction>
-- Themes: <https://docs.unbound.rip/themes/introduction>
-- Manifest reference: <https://docs.unbound.rip/addons/manifest>
+After the GitHub repository itself is renamed, the canonical repository will be:
+
+`https://github.com/Artkos078/kettu-plugins`
+
+Plugin install/source URLs in this repository use the `Artkos078/kettu-plugins` name.
