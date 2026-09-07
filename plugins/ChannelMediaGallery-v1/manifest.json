@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery v1",
-  "description": "Compact inline Kettu channel media gallery with saved media, filters, previews, and native modal opening.",
+  "description": "Kettu channel media gallery with restored config detection and gallery loader.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-lite-1.1.21-inline",
-  "version": "1.1.21"
+  "hash": "channel-media-gallery-v1.1.22-config-detect",
+  "version": "1.1.22"
 }
