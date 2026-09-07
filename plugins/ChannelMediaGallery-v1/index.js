@@ -86,7 +86,7 @@
   function restorePinnedCache() {
     var saved = readPinnedCache();
     if (!saved) return false;
-    storage.savedMedia = asArray(saved.savedMedia);
+    storage.savedMedia = dedupeSavedMedia(saved.savedMedia);
     storage.savedAt = saved.savedAt || storage.savedAt || null;
     storage.savedChannelId = saved.savedChannelId || storage.savedChannelId || null;
     storage.savedGuildId = saved.savedGuildId || storage.savedGuildId || SERVER_CACHE_GUILD_ID;
@@ -331,17 +331,67 @@
     return !!item.isGif || /(?:image\/gif|\.gif(?:\?|#|$))/i.test(String(item.url || "") + " " + String(item.name || ""));
   }
 
+  function canonicalMediaUrl(url) {
+    url = String(url || "").trim();
+    if (!url) return "";
+    try {
+      var parsed = new URL(url);
+      parsed.protocol = parsed.protocol.toLowerCase();
+      parsed.hostname = parsed.hostname.toLowerCase()
+        .replace(/^media\.discordapp\.net$/i, "cdn.discordapp.com")
+        .replace(/^images-ext-\d+\.discordapp\.net$/i, "cdn.discordapp.com");
+      var params = [];
+      parsed.searchParams.forEach(function (value, key) {
+        key = String(key || "").toLowerCase();
+        if (["ex", "is", "hm", "width", "height", "format", "quality", "size", "name"].indexOf(key) === -1) {
+          params.push([key, value]);
+        }
+      });
+      parsed.search = "";
+      parsed.hash = "";
+      params.sort(function (a, b) { return a[0].localeCompare(b[0]) || String(a[1]).localeCompare(String(b[1])); });
+      params.forEach(function (pair) { parsed.searchParams.append(pair[0], pair[1]); });
+      return parsed.toString().replace(/\/$/, "");
+    } catch (e) {
+      return url.split("#")[0].split("?")[0].toLowerCase();
+    }
+  }
+
+  function mediaDedupeKeys(message, raw, url) {
+    var keys = [];
+    var canonical = canonicalMediaUrl(url);
+    var proxy = canonicalMediaUrl(raw && (raw.proxy_url || raw.proxyURL));
+    var thumb = canonicalMediaUrl(raw && (raw.thumbnailUrl || raw.thumbnail_url || (raw.thumbnail && (raw.thumbnail.proxy_url || raw.thumbnail.url))));
+    function add(key) { if (key && keys.indexOf(key) === -1) keys.push(key); }
+    add(canonical);
+    add(proxy);
+    add(thumb);
+    add(String((message && message.id) || "") + "|" + canonical);
+    add(String((message && message.id) || "") + "|" + proxy);
+    return keys;
+  }
+
+  function hasSeenMedia(seen, keys) {
+    for (var i = 0; i < keys.length; i++) if (seen[keys[i]]) return true;
+    return false;
+  }
+
+  function markSeenMedia(seen, keys) {
+    for (var i = 0; i < keys.length; i++) if (keys[i]) seen[keys[i]] = true;
+  }
+
   function pushMedia(items, seen, message, raw, origin) {
     if (!raw) return;
     var url = raw.url || raw.proxy_url || raw.proxyURL;
-    if (!url || seen[url]) return;
+    var keys = mediaDedupeKeys(message, raw, url);
+    if (!url || hasSeenMedia(seen, keys)) return;
     var name = raw.filename || raw.name || raw.title || origin || "media";
     var contentType = raw.content_type || raw.contentType || raw.type || name || url;
     var type = mediaTypeFrom(contentType);
     if (type === "embed") type = mediaTypeFrom(url);
     if (origin === "embed" && type !== "image" && type !== "video") type = "embed";
     if (type === "embed" && origin !== "embed" && !isMediaUrl(url)) return;
-    seen[url] = true;
+    markSeenMedia(seen, keys);
     items.push({
       url: String(url),
       proxyUrl: String(raw.proxy_url || raw.proxyURL || url),
@@ -375,6 +425,19 @@
       });
     });
     return items;
+  }
+
+  function dedupeSavedMedia(items) {
+    var out = [];
+    var seen = {};
+    asArray(items).forEach(function (item) {
+      if (!item || !item.url) return;
+      var keys = mediaDedupeKeys({ id: item.messageId || "" }, item, item.url);
+      if (hasSeenMedia(seen, keys)) return;
+      markSeenMedia(seen, keys);
+      out.push(item);
+    });
+    return out;
   }
 
   function getCachedMessages(channelId) {
@@ -498,7 +561,7 @@
     var remote = await getRemoteMessages(channelId, limit);
     fetchedChannels[String(channelId)] = true;
     var media = collectMedia(remote, max);
-    storage.savedMedia = media;
+    storage.savedMedia = dedupeSavedMedia(media);
     storage.savedChannelId = channelId;
     var savedChannel = getChannel(channelId);
     if (savedChannel && (savedChannel.guild_id || savedChannel.guildId)) storage.savedGuildId = String(savedChannel.guild_id || savedChannel.guildId);
@@ -507,7 +570,7 @@
     storage.savedAt = new Date().toISOString();
     writePinnedCache();
     status.cache = true;
-    return { channelId: channelId, media: media, source: "fresh history", openStatus: openStatus };
+    return { channelId: channelId, media: storage.savedMedia, source: "fresh history", openStatus: openStatus };
   }
 
   function copyUrl(url) { try { if (RN.Clipboard && RN.Clipboard.setString) { RN.Clipboard.setString(url); toast("Media URL copied"); return; } } catch (e) {} toast("Clipboard unavailable"); }
@@ -662,7 +725,7 @@
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.36"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.37"),
       React.createElement(Pressable, { accessibilityRole: "button", onPress: function () { setMessage("Hi!"); toast("Hi!"); }, style: { padding: 12, marginTop: 10, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Hi")),
       storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: refreshGuild, style: { padding: 12, marginTop: 12, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Force Load Server Channels")) : null,
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
