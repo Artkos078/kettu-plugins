@@ -1,29 +1,24 @@
 # Bypass Size Limit for Kettu
 
-Converted from the Vencord plugin into a Kettu/Unbound-style plugin folder.
+Mobile Discord uploads are handled before normal `fetch`/XHR calls, so this plugin uses the Kettu/Revenge mobile pattern instead: it patches Discord's `CloudUpload` object, uploads large files to Catbox or Litterbox, cancels the failing Discord upload, and sends a link in the current chat.
 
 ## Install
 
-Put this folder here:
+Use this plugin URL in Kettu:
 
 ```text
-Discord/Unbound/Plugins/KettuBypassSizeLimit/
+https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/BypassSizeLimit-v1/
 ```
 
-The folder should contain:
+Restart Discord/Kettu after updating the plugin.
 
-```text
-manifest.json
-index.js
-README.md
-```
+## Behavior
 
-Restart Discord/Kettu after copying it in. Then drag or paste an `.mp4` over 25 MB into a Discord channel.
+- Files up to 10 MB upload normally through Discord.
+- Files from 10 MB to 200 MB upload to Catbox.
+- Files from 200 MB to 1 GB upload to Litterbox for 1 hour.
+- The plugin sends the resulting link in the current channel or DM. If sending fails, it copies the link.
 
-## What changed
+## Status
 
-- Removed Vencord imports.
-- Removed the Electron/native helper.
-- Appends the clip metadata bytes directly in browser JavaScript.
-- Adds both drop and paste support.
-- Uses Discord's loaded client modules to find the current channel, current user, token, and toast system.
+Open the plugin settings page and check `Mobile upload hook`. It should say `active`. If it says `inactive`, Kettu could not find Discord's mobile upload module on that build.
