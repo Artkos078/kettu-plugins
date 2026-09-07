@@ -420,7 +420,7 @@ function SettingsComponent(){
 function start(){
   migratePasscode();save();unlocked=false;
   patchDataSources();patchNavigation();patchMessageView();patchContextMenus();patchAppState();
-  toast('PrivateChats v9 security loaded');
+  
 }
 function stop(){
   unlocked=false;
