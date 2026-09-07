@@ -4,8 +4,6 @@ This folder contains the retained Kettu plugin sources. For normal installs, use
 
 | Plugin | Status | Purpose | Install URL |
 | --- | --- | --- | --- |
-| **PanicNav v1.4** | Recommended | Floating Back, Home, and Panic controls. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PanicNav-v14/` |
-| **PanicNav Gestures** | Recommended | Gesture-only navigation actions without a floating overlay. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PanicNav-Gestures/` |
 | **PrivateChats v9** | Recommended | Locally hide/lock protected DMs and servers with passcode and auto-lock behavior. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
 | **NativeVideoPlayer v2** | Legacy / experimental | Older video-opening implementation retained for testing/reference. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/NativeVideoPlayer-v2/` |
 | **VideoSkipGestures v3** | Legacy / experimental | Older media gesture implementation retained for reference. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/VideoSkipGestures-v3/` |
