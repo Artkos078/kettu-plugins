@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery v1",
-  "description": "Keeps channel images, videos, GIFs, and embeds in a filtered in-app gallery, with server force loading and cached results.",
+  "description": "Keeps channel images, videos, GIFs, and embeds in a filtered in-app gallery, with server force loading, NSFW channel fixes, and cached results.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.9-startup-delay",
-  "version": "1.1.9"
+  "hash": "channel-media-gallery-v1.1.10-nsfw-force-fix",
+  "version": "1.1.10"
 }
