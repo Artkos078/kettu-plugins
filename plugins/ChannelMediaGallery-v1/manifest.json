@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery v1",
-  "description": "Inline Kettu channel media gallery with saved media, filters, previews, native modal opening, and config export compatibility.",
+  "description": "Kettu channel media gallery with safe storage setup, config compatibility, saved media, filters, previews, and native modal opening.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.24-inline-default",
-  "version": "1.1.24"
+  "hash": "channel-media-gallery-v1.1.25-safe-storage",
+  "version": "1.1.25"
 }
