@@ -1,9 +1,14 @@
 {
+  "id": "unbound.lounge-auto-messages",
+  "type": "plugin",
   "name": "Lounge Auto Messages",
-  "description": "Switches from The Lounge to Messages when the iOS app is backgrounded and verifies the switch again on resume.",
-  "authors": [{"name":"ChatGPT"}],
-  "main": "index.js",
-  "vendetta": {"icon":"ic_message_24px"},
-  "hash": "lounge-auto-messages-1.0.0",
-  "version": "1.0.0"
+  "description": "Returns to Messages after the app is backgrounded while viewing The Lounge.",
+  "authors": [
+    {
+      "id": "0",
+      "name": "Artkos078"
+    }
+  ],
+  "version": "1.0.1",
+  "main": "index.js"
 }
