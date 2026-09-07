@@ -236,7 +236,7 @@ async function load(){
     if(core&&typeof core.onLoad==='function')core.onLoad();
     runtime=scope.__privateChatsRuntime||runtime;
     installFixes();
-    toast('PrivateChats v9.2 loaded');
+    
   }catch(e){
     loadError=e;log('PrivateChats v9.2 load failed',e);toast('PrivateChats v9.2 failed to load core');
   }
