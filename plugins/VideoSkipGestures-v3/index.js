@@ -63,7 +63,6 @@ function GestureLayer(props){
         var dur=Number(duration.current)||0;
         var target=cur+(dir*jump);
         target=dur>0?clamp(target,0,dur):Math.max(0,target);
-
         locked.current=true;
         controls.seek(target);
         current.current=target;
@@ -74,17 +73,21 @@ function GestureLayer(props){
     }
   }
 
+  // Keep the top and bottom control bars completely untouched so Discord's
+  // close button, scrubber, play/pause, and other native controls remain tappable.
+  var hitStyle={position:'absolute',top:72,bottom:72,backgroundColor:'transparent'};
+
   return React.createElement(View,{pointerEvents:'box-none',style:{position:'absolute',left:0,right:0,top:0,bottom:0,zIndex:40,elevation:40}},
     React.createElement(Pressable,{
       pointerEvents:'auto',
       onPress:function(){doubleTap(-1);},
-      style:{position:'absolute',left:0,top:0,bottom:0,width:'32%',backgroundColor:'transparent'},
+      style:Object.assign({},hitStyle,{left:0,width:'30%'}),
       accessibilityLabel:'Rewind '+pstore.seconds+' seconds'
     }),
     React.createElement(Pressable,{
       pointerEvents:'auto',
       onPress:function(){doubleTap(1);},
-      style:{position:'absolute',right:0,top:0,bottom:0,width:'32%',backgroundColor:'transparent'},
+      style:Object.assign({},hitStyle,{right:0,width:'30%'}),
       accessibilityLabel:'Forward '+pstore.seconds+' seconds'
     })
   );
@@ -119,7 +122,7 @@ function patchMediaOverlay(){
         if(!controls||typeof controls.seek!=='function')return ret;
         return React.createElement(React.Fragment,null,
           ret,
-          React.createElement(GestureLayer,{controls:controls,key:'video-skip-media-modal-v3'})
+          React.createElement(GestureLayer,{controls:controls,key:'video-skip-media-modal-v3-1'})
         );
       }catch(e){return ret;}
     });
@@ -139,8 +142,8 @@ function Settings(){
     React.createElement(TextInput,{keyboardType:'number-pad',value:String(pstore[key]),onChangeText:function(v){var n=Number(v);if(Number.isFinite(n))pstore[key]=n;bump();},style:{borderWidth:1,borderColor:'#555',borderRadius:10,padding:11,color:'white'}})
   );}
   return React.createElement(ScrollView,{style:{padding:16}},
-    React.createElement(Text,{style:{color:'white',fontWeight:'900',fontSize:24}},'Video Skip Gestures v3'),
-    React.createElement(Text,{style:{color:'#aaa',marginTop:7}},'Expanded Discord video: double-tap left to rewind and right to skip forward.'),
+    React.createElement(Text,{style:{color:'white',fontWeight:'900',fontSize:24}},'Video Skip Gestures v3.1'),
+    React.createElement(Text,{style:{color:'#aaa',marginTop:7}},'Discord media viewer only. Double-tap left to rewind and right to skip forward.'),
     React.createElement(Text,{style:{color:status.overlay?'#6fdc8c':'#ffb86b',marginTop:12}},'Media overlay hook: '+(status.overlay?'OK':'missing')),
     React.createElement(View,{style:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:18}},
       React.createElement(Text,{style:{color:'white'}},'Enable double-tap skip'),
@@ -148,13 +151,13 @@ function Settings(){
     ),
     row('Skip amount in seconds','seconds'),
     row('Double-tap window in ms','doubleTapMs'),
-    React.createElement(Text,{style:{color:'#777',marginTop:18,marginBottom:30}},'v3 does not patch video progress events and does not show a toast on every skip. The middle 36% remains available for Discord controls.')
+    React.createElement(Text,{style:{color:'#777',marginTop:18,marginBottom:30}},'The top and bottom control areas are excluded from gesture interception so the X and playback controls remain clickable.')
   );
 }
 
 function onLoad(){
   patchMediaOverlay();
-  toast(status.overlay?'Video skip gestures v3 loaded':'Video skip gestures v3: media overlay hook missing');
+  toast(status.overlay?'Video skip gestures v3.1 loaded':'Video skip gestures: media overlay hook missing');
 }
 function onUnload(){while(unpatches.length){try{unpatches.pop()();}catch(e){}}}
 return{onLoad:onLoad,onUnload:onUnload,settings:Settings};
