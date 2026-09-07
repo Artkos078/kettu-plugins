@@ -4,7 +4,11 @@
   var V = globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};
   var metro = V.metro || {};
   var common = metro.common || {};
-  var findByProps = metro.findByProps || V.findByProps || function () { return null; };
+  function findByProps() {
+    try { if (typeof metro.findByProps === "function") return metro.findByProps.apply(metro, arguments); } catch (e) {}
+    try { if (typeof V.findByProps === "function") return V.findByProps.apply(V, arguments); } catch (e) {}
+    return null;
+  }
   var React = common.React || findByProps("createElement", "useState") || globalThis.React;
   var RN = common.ReactNative || findByProps("View", "Text", "TextInput", "Pressable") || {};
   var ui = V.ui || {};
@@ -84,13 +88,16 @@
     if (!url || seen[url]) return;
     var name = raw.filename || raw.name || raw.title || origin || "media";
     var contentType = raw.content_type || raw.contentType || raw.type || name || url;
-    var type = mediaTypeFrom(contentType || url);
+    var type = mediaTypeFrom(contentType);
+    if (type === "embed") type = mediaTypeFrom(url);
     if (origin === "embed" && type !== "image" && type !== "video") type = "embed";
     if (type === "embed" && origin !== "embed" && !isMediaUrl(url)) return;
     seen[url] = true;
     items.push({
       url: String(url),
       proxyUrl: String(raw.proxy_url || raw.proxyURL || url),
+      width: Number(raw.width) || 0,
+      height: Number(raw.height) || 0,
       type: type,
       origin: origin || (type === "embed" ? "embed" : "attachment"),
       name: String(name),
@@ -108,9 +115,9 @@
       asArray(message.attachments).forEach(function (attachment) { if (items.length < max) pushMedia(items, seen, message, attachment, "attachment"); });
       asArray(message.embeds).forEach(function (embed) {
         if (items.length >= max || !embed) return;
-        pushMedia(items, seen, message, embed.image, "embed");
-        pushMedia(items, seen, message, embed.thumbnail, "embed");
-        pushMedia(items, seen, message, embed.video, "embed");
+        if (embed.image) pushMedia(items, seen, message, Object.assign({}, embed.image, { content_type: "image/*" }), "embed");
+        if (embed.thumbnail) pushMedia(items, seen, message, Object.assign({}, embed.thumbnail, { content_type: "image/*" }), "embed");
+        if (embed.video) pushMedia(items, seen, message, Object.assign({}, embed.video, { content_type: "video/*" }), "embed");
         if (embed.url) pushMedia(items, seen, message, { url: embed.url, title: embed.title || "embed" }, "embed");
       });
     });
@@ -188,14 +195,48 @@
 
   function copyUrl(url) { try { if (RN.Clipboard && RN.Clipboard.setString) { RN.Clipboard.setString(url); toast("Media URL copied"); return; } } catch (e) {} toast("Clipboard unavailable"); }
 
+  async function openNativeMedia(item) {
+    var viewer = findByProps("openMediaModal");
+    if (!viewer || typeof viewer.openMediaModal !== "function") {
+      throw new Error("Discord's native media viewer is unavailable on this build.");
+    }
+    var type = item.type === "embed" ? mediaTypeFrom(item.url) : item.type;
+    if (type !== "image" && type !== "video") {
+      throw new Error("This embed is a webpage, not playable media. Open its image or video tile.");
+    }
+    var screen = RN.Dimensions ? RN.Dimensions.get("window") : { width: 320, height: 640 };
+    var width = Number(item.width) || screen.width;
+    var height = Number(item.height) || screen.height;
+    if (type === "image" && (!item.width || !item.height) && RN.Image && RN.Image.getSize) {
+      var size = await new Promise(function (resolve) {
+        var timeout = setTimeout(function () { resolve(null); }, 3000);
+        RN.Image.getSize(item.proxyUrl || item.url, function (w, h) {
+          clearTimeout(timeout); resolve([w, h]);
+        }, function () { clearTimeout(timeout); resolve(null); });
+      });
+      if (size) { width = size[0]; height = size[1]; }
+    }
+    var source = { sourceURI: item.url, width: width, height: height };
+    if (type === "video") source.videoURI = item.url;
+    else source.uri = item.proxyUrl || item.url;
+    // Older clients use originLayout; newer clients accept originViewOrOriginLayout.
+    var origin = { x: screen.width / 2 - 56, y: screen.height / 2 - 56, width: 112, height: 112, resizeMode: "fill" };
+    await viewer.openMediaModal({
+      initialSources: [source],
+      initialIndex: 0,
+      channelId: storage.savedChannelId || undefined,
+      originLayout: origin,
+      originViewOrOriginLayout: origin
+    });
+  }
+
   function Settings() {
     if (!React || !RN || !RN.View || !RN.Text) return null;
-    var View = RN.View, Text = RN.Text, Image = RN.Image, Modal = RN.Modal, Pressable = RN.Pressable || RN.TouchableOpacity, ScrollView = RN.ScrollView || RN.View, TextInput = RN.TextInput, ActivityIndicator = RN.ActivityIndicator;
+    var View = RN.View, Text = RN.Text, Image = RN.Image, Pressable = RN.Pressable || RN.TouchableOpacity, ScrollView = RN.ScrollView || RN.View, TextInput = RN.TextInput, ActivityIndicator = RN.ActivityIndicator;
     var state = React.useState(filtered(storage.savedMedia));
     var items = state[0], setItems = state[1];
     var loadingState = React.useState(false), loading = loadingState[0], setLoading = loadingState[1];
     var msgState = React.useState(storage.savedMedia.length ? "Showing saved gallery. Run again to refresh." : status.last), message = msgState[0], setMessage = msgState[1];
-    var selectedState = React.useState(null), selected = selectedState[0], setSelected = selectedState[1];
     var tickState = React.useState(0), tick = tickState[0], setTick = tickState[1];
     function bump() { setTick(tick + 1); setItems(filtered(storage.savedMedia)); }
     async function runLoad() {
@@ -214,34 +255,15 @@
       var active = storage.filterMode === mode;
       return React.createElement(Pressable, { onPress: function () { storage.filterMode = mode; bump(); }, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 6, marginTop: 8, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
     }
-    function preview() {
-      if (!Modal || !selected) return null;
-      var isImage = selected.type === "image" && Image;
-      return React.createElement(Modal, { visible: !!selected, transparent: false, animationType: "slide", onRequestClose: function () { setSelected(null); } },
-        React.createElement(View, { style: { flex: 1, backgroundColor: "#050505", padding: 14 } },
-          React.createElement(View, { style: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
-            React.createElement(Text, { style: { color: "white", fontSize: 18, fontWeight: "900", flex: 1 }, numberOfLines: 1 }, selected.name || selected.type),
-            React.createElement(Pressable, { onPress: function () { setSelected(null); }, style: { padding: 10 } }, React.createElement(Text, { style: { color: "white", fontWeight: "900" } }, "Close"))
-          ),
-          isImage ? React.createElement(Image, { source: { uri: selected.proxyUrl || selected.url }, resizeMode: "contain", style: { flex: 1, width: "100%" } }) : React.createElement(View, { style: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 } },
-            React.createElement(Text, { style: { color: "white", fontSize: 26, fontWeight: "900" } }, selected.type.toUpperCase()),
-            React.createElement(Text, { style: { color: "#aaa", textAlign: "center", marginTop: 12 } }, "Kettu did not expose a native video/embed player here, so this opens as an in-app detail modal."),
-            React.createElement(Text, { style: { color: "#777", textAlign: "center", marginTop: 10 } }, selected.url)
-          ),
-          React.createElement(Pressable, { onPress: function () { copyUrl(selected.url); }, style: { marginTop: 12, padding: 13, borderRadius: 8, backgroundColor: "#333", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, "Copy URL"))
-        )
-      );
-    }
     function tile(item, index) {
       var isImage = item.type === "image";
       return React.createElement(View, { key: item.url + index, style: { width: "33.333%", padding: 4 } },
-        React.createElement(Pressable, { onPress: function () { setSelected(item); }, onLongPress: function () { copyUrl(item.url); }, style: { backgroundColor: "#222", borderRadius: 8, overflow: "hidden", minHeight: 112 } },
+        React.createElement(Pressable, { onPress: function () { openNativeMedia(item).catch(function (e) { var error = e && e.message ? e.message : String(e); setMessage(error); toast(error); }); }, onLongPress: function () { copyUrl(item.url); }, style: { backgroundColor: "#222", borderRadius: 8, overflow: "hidden", minHeight: 112 } },
           isImage && Image ? React.createElement(Image, { source: { uri: item.proxyUrl || item.url }, resizeMode: "cover", style: { width: "100%", height: 112, backgroundColor: "#111" } }) : React.createElement(View, { style: { height: 112, alignItems: "center", justifyContent: "center", backgroundColor: "#181818" } }, React.createElement(Text, { style: { color: "white", fontWeight: "900" } }, item.type.toUpperCase()), React.createElement(Text, { numberOfLines: 1, style: { color: "#aaa", marginTop: 6, paddingHorizontal: 6, fontSize: 11 } }, item.name))
         )
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      preview(),
       React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery"),
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Saved gallery stays here until you run it again. Tap media for an in-app preview. Long-press copies URL."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Channel: " + (storage.savedChannelId || storage.lastChannelId || "none")),
