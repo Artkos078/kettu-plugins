@@ -1,0 +1,9 @@
+{
+  "name": "PanicNav Floating v1.3",
+  "description": "Movable floating Back, Home, and Panic controls mounted through Discord's global ToastContainer layer in Kettu.",
+  "authors": [{"name":"ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_arrow_back_24px"},
+  "hash": "panicnav-v1.3-toastcontainer-5cb4826e53188614567c7ee9b7c1c9635274e1b0",
+  "version": "1.3.0"
+}
