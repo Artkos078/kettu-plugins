@@ -12,7 +12,7 @@ Custom plugins and quality-of-life tweaks for Kettu on iOS.
 
 ## About
 
-This repository contains custom Kettu plugins for Discord on iOS. The active installable plugins are hosted directly from the `main` branch so Kettu can fetch each plugin's `manifest.json` and JavaScript file from the same folder.
+This repository contains custom Kettu plugins for Discord on iOS. Active installable plugins are hosted directly from the `main` branch so Kettu can fetch each plugin's `manifest.json` and JavaScript entry file from the same folder.
 
 This is a personal/community plugin repository and is not an official Kettu project.
 
@@ -21,8 +21,6 @@ This is a personal/community plugin repository and is not an official Kettu proj
 | Plugin | What it does | Version | Install URL |
 | --- | --- | ---: | --- |
 | **Kettu Media Gestures** | Adds double-tap rewind/forward inside Kettu's normal Discord media viewer. Does not use the native iOS player. | 3.2.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/media/` |
-| **PanicNav Floating** | Adds movable Back, Home, and Panic controls for fast navigation. | 1.4.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PanicNav-v14/` |
-| **PanicNav Gestures** | Gesture-only Back, Home, and Panic actions without a floating overlay. | 1.0.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PanicNav-Gestures/` |
 | **PrivateChats** | Locally hide and lock selected DMs and servers with passcode protection and auto-lock behavior. | 0.9.2 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
 
 ## Installing a plugin
@@ -36,7 +34,7 @@ This is a personal/community plugin repository and is not an official Kettu proj
 
 ### Important URL format
 
-Kettu expects a source folder, not a link to `manifest.json` itself.
+Kettu expects a source folder, not a direct link to `manifest.json`.
 
 Correct:
 
@@ -61,11 +59,11 @@ plugin-folder/
 └── index.js
 ```
 
-Some older plugins may use another JavaScript entry file such as `loader.js`; the manifest controls which file Kettu loads.
+Some plugins may use another JavaScript entry file such as `loader.js`; the manifest's `main` field determines which file Kettu loads.
 
 ## Media Gestures
 
-`media/` is the current media plugin and is the recommended option for video controls.
+`media/` is the current media plugin and the recommended option for video controls.
 
 Features:
 
@@ -105,7 +103,7 @@ The manifest loaded, but Kettu could not retrieve the JavaScript file named by t
 
 ### Plugin installs but changes do not appear
 
-Disable and re-enable the plugin or reload Kettu. If an updated plugin is still cached, removing it and installing it again from the same source URL can force Kettu to load the current manifest/version.
+Disable and re-enable the plugin or reload Kettu. If an updated plugin is still cached, remove it and install it again from the same source URL.
 
 ## Repository layout
 
@@ -113,8 +111,6 @@ Disable and re-enable the plugin or reload Kettu. If an updated plugin is still 
 kettu-plugins/
 ├── media/                    # Current media gestures plugin
 ├── plugins/
-│   ├── PanicNav-Gestures/
-│   ├── PanicNav-v14/
 │   ├── PrivateChats-v9/
 │   ├── NativeVideoPlayer-v2/ # Older/experimental media implementation
 │   └── VideoSkipGestures-v3/ # Older media gesture implementation
