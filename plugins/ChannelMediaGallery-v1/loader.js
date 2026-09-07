@@ -36,7 +36,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.14&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.15&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
@@ -61,7 +61,7 @@ async function start(force){
     started=false;
     runtime=null;
     loadError=e;
-    toast('Channel Media Gallery core failed. Open config and press Retry.');
+    toast('Channel Media Gallery loader failed. Update/reinstall plugin to v1.1.15.');
   }
 }
 
