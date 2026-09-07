@@ -1,14 +1,16 @@
 (function () {
   "use strict";
 
-  var V = (typeof vendetta !== "undefined" && vendetta) || globalThis.vendetta || {};
+  var V = globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};
   var metro = V.metro || {};
   var common = metro.common || {};
-  var React = common.React;
-  var RN = common.ReactNative;
+  var findByProps = metro.findByProps || V.findByProps || function () { return null; };
+  var React = common.React || findByProps("createElement", "useState") || globalThis.React;
+  var RN = common.ReactNative || findByProps("View", "Text", "TextInput", "Pressable") || {};
   var ui = V.ui || {};
-  var toastApi = (ui && ui.toasts) || {};
-  var storage = (V.plugin && V.plugin.storage) || {};
+  var toastApi = ui.toasts || {};
+  var storageRoot = (V.plugin && V.plugin.storage) || V.storage || {};
+  var storage = storageRoot.channelMediaGallery || (storageRoot.channelMediaGallery = {});
   var timer = null;
 
   if (storage.maxMedia == null) storage.maxMedia = 30;
@@ -25,51 +27,25 @@
     status.last = String(message);
     try {
       if (toastApi.showToast) toastApi.showToast(String(message));
+      else if (ui.showToast) ui.showToast(String(message));
     } catch (e) {}
     try {
       console.log("[Channel Media Gallery]", message);
     } catch (e) {}
   }
 
-  function findByProps() {
-    try {
-      if (typeof metro.findByProps === "function") {
-        return metro.findByProps.apply(metro, arguments);
-      }
-    } catch (e) {}
-
-    try {
-      if (typeof V.findByProps === "function") {
-        return V.findByProps.apply(V, arguments);
-      }
-    } catch (e) {}
-
-    return null;
-  }
-
   function asArray(collection) {
     var out = [];
     if (!collection) return out;
-
     if (Array.isArray(collection)) return collection.slice();
 
-    try {
-      if (Array.isArray(collection._array)) return collection._array.slice();
-    } catch (e) {}
-
-    try {
-      if (typeof collection.toArray === "function") return collection.toArray();
-    } catch (e) {}
-
-    try {
-      if (typeof collection.valueSeq === "function") return collection.valueSeq().toArray();
-    } catch (e) {}
+    try { if (Array.isArray(collection._array)) return collection._array.slice(); } catch (e) {}
+    try { if (typeof collection.toArray === "function") return collection.toArray(); } catch (e) {}
+    try { if (typeof collection.valueSeq === "function") return collection.valueSeq().toArray(); } catch (e) {}
 
     try {
       if (typeof collection.forEach === "function") {
-        collection.forEach(function (value) {
-          if (value) out.push(value);
-        });
+        collection.forEach(function (value) { if (value) out.push(value); });
         if (out.length) return out;
       }
     } catch (e) {}
@@ -170,9 +146,7 @@
         pushMedia(items, seen, message, embed.image);
         pushMedia(items, seen, message, embed.thumbnail);
         pushMedia(items, seen, message, embed.video);
-        if (embed.url && isMediaUrl(embed.url)) {
-          pushMedia(items, seen, message, { url: embed.url, title: embed.title || "embed media" });
-        }
+        if (embed.url && isMediaUrl(embed.url)) pushMedia(items, seen, message, { url: embed.url, title: embed.title || "embed media" });
       });
     });
     return items;
@@ -186,42 +160,29 @@
       var messages = asArray(MessageStore.getMessages(channelId));
       if (messages.length) status.cache = true;
       return messages;
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
   }
 
   async function getRemoteMessages(channelId, limit) {
     var HTTP = findByProps("get", "post", "put", "del") || findByProps("get", "post", "patch", "del");
     if (!HTTP || typeof HTTP.get !== "function") return [];
 
-    var paths = [
-      "/channels/" + channelId + "/messages",
-      "/api/v9/channels/" + channelId + "/messages"
-    ];
-
+    var paths = ["/channels/" + channelId + "/messages", "/api/v9/channels/" + channelId + "/messages"];
     for (var i = 0; i < paths.length; i++) {
       try {
         var response = await HTTP.get({ url: paths[i], query: { limit: limit } });
         var body = response && (response.body || response.text || response.data || response);
         var messages = asArray(body && body.messages ? body.messages : body);
-        if (messages.length) {
-          status.http = true;
-          return messages;
-        }
+        if (messages.length) { status.http = true; return messages; }
       } catch (e) {}
 
       try {
         var response2 = await HTTP.get({ url: paths[i] + "?limit=" + encodeURIComponent(limit) });
         var body2 = response2 && (response2.body || response2.text || response2.data || response2);
         var messages2 = asArray(body2 && body2.messages ? body2.messages : body2);
-        if (messages2.length) {
-          status.http = true;
-          return messages2;
-        }
+        if (messages2.length) { status.http = true; return messages2; }
       } catch (e2) {}
     }
-
     return [];
   }
 
@@ -234,39 +195,24 @@
 
     var remote = await getRemoteMessages(channelId, limit);
     var cached = getCachedMessages(channelId);
-    var combined = remote.concat(cached);
-    var media = collectMedia(combined, max);
+    var media = collectMedia(remote.concat(cached), max);
 
-    if (!media.length) {
-      throw new Error(remote.length || cached.length ? "No recent media found in this channel." : "No messages found. Scroll the channel a bit, then reload.");
-    }
-
+    if (!media.length) throw new Error(remote.length || cached.length ? "No recent media found in this channel." : "No messages found. Scroll the channel a bit, then reload.");
     return { channelId: channelId, media: media, source: remote.length ? "recent history" : "loaded cache" };
   }
 
   function openUrl(url) {
-    try {
-      if (RN && RN.Linking && RN.Linking.openURL) {
-        RN.Linking.openURL(url);
-        return;
-      }
-    } catch (e) {}
+    try { if (RN.Linking && RN.Linking.openURL) { RN.Linking.openURL(url); return; } } catch (e) {}
     toast("Could not open URL");
   }
 
   function copyUrl(url) {
-    try {
-      if (RN && RN.Clipboard && RN.Clipboard.setString) {
-        RN.Clipboard.setString(url);
-        toast("Media URL copied");
-        return;
-      }
-    } catch (e) {}
+    try { if (RN.Clipboard && RN.Clipboard.setString) { RN.Clipboard.setString(url); toast("Media URL copied"); return; } } catch (e) {}
     toast("Clipboard unavailable");
   }
 
   function Settings() {
-    if (!React || !RN) return null;
+    if (!React || !RN || !RN.View || !RN.Text) return null;
 
     var View = RN.View;
     var Text = RN.Text;
@@ -289,9 +235,7 @@
     var tick = tickState[0];
     var setTick = tickState[1];
 
-    function bump() {
-      setTick(tick + 1);
-    }
+    function bump() { setTick(tick + 1); }
 
     async function runLoad() {
       setLoading(true);
@@ -308,6 +252,12 @@
     }
 
     function numberBox(label, key) {
+      if (!TextInput) {
+        return React.createElement(View, { style: { flex: 1, marginRight: 8 } },
+          React.createElement(Text, { style: { color: "#bbb", marginBottom: 6, fontSize: 12 } }, label),
+          React.createElement(Text, { style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10 } }, String(storage[key]))
+        );
+      }
       return React.createElement(View, { style: { flex: 1, marginRight: 8 } },
         React.createElement(Text, { style: { color: "#bbb", marginBottom: 6, fontSize: 12 } }, label),
         React.createElement(TextInput, {
@@ -331,7 +281,7 @@
           onLongPress: function () { copyUrl(item.url); },
           style: { backgroundColor: "#222", borderRadius: 8, overflow: "hidden", minHeight: 112 }
         },
-          isImage
+          isImage && Image
             ? React.createElement(Image, { source: { uri: item.proxyUrl || item.url }, resizeMode: "cover", style: { width: "100%", height: 112, backgroundColor: "#111" } })
             : React.createElement(View, { style: { height: 112, alignItems: "center", justifyContent: "center", backgroundColor: "#181818" } },
                 React.createElement(Text, { style: { color: "white", fontWeight: "900" } }, item.type.toUpperCase()),
@@ -343,12 +293,9 @@
 
     return React.createElement(ScrollView, { style: { padding: 16 } },
       React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery"),
-      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Loads recent images/videos from the channel you were just viewing. Tap media to open it. Long-press to copy its URL."),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Open a channel, then come here and load its recent images/videos. Tap to open. Long-press to copy."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Last channel: " + (storage.lastChannelId || "none yet")),
-      React.createElement(View, { style: { flexDirection: "row", marginTop: 16 } },
-        numberBox("Gallery count", "maxMedia"),
-        numberBox("Messages scanned", "fetchLimit")
-      ),
+      React.createElement(View, { style: { flexDirection: "row", marginTop: 16 } }, numberBox("Gallery count", "maxMedia"), numberBox("Messages scanned", "fetchLimit")),
       React.createElement(Pressable, {
         disabled: loading,
         onPress: runLoad,
@@ -374,11 +321,5 @@
     toast("Channel Media Gallery unloaded");
   }
 
-  return {
-    onLoad: onLoad,
-    onUnload: onUnload,
-    start: onLoad,
-    stop: onUnload,
-    settings: Settings
-  };
+  return { onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings };
 })()
