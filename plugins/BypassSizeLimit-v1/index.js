@@ -9,38 +9,21 @@
   var ui = V.ui || {};
   var storage = (V.plugin && V.plugin.storage) || {};
 
-  var originalFetch = null;
-  var originalXhrOpen = null;
-  var originalXhrSend = null;
-  var patched = false;
-  var xhrPatched = false;
-  var uploadByUrl = {};
-  var uploadByName = {};
+  var CloudUpload = null;
+  var originalCompress = null;
+  var loaded = false;
   var stats = storage.bypassSizeLimitStats || {
-    patched: false,
-    xhrPatched: false,
-    slots: 0,
-    bodies: 0,
-    messages: 0,
-    seen: 0,
+    uploaderPatched: false,
+    handled: 0,
+    sent: 0,
+    copied: 0,
     last: "Not loaded"
   };
   storage.bypassSizeLimitStats = stats;
 
-  var LARGE_MP4_BYTES = 25 * 1024 * 1024;
-  var DEFAULT_APPLICATION_ID = "1301689862256066560";
-  var ATTACHMENTS_RE = /\/api\/v\d+\/channels\/(\d+)\/attachments(?:\?|$)/;
-  var MESSAGES_RE = /\/api\/v\d+\/channels\/(\d+)\/messages(?:\?|$)/;
-
-  var CLIP_MAGIC_BYTES = new Uint8Array([
-    0, 0, 0, 89, 109, 101, 116, 97, 0, 0, 0, 0, 0, 0, 0, 33, 104, 100, 108, 114,
-    0, 0, 0, 0, 0, 0, 0, 0, 109, 100, 105, 114, 97, 112, 112, 108, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 44, 105, 108, 115, 116, 0, 0, 0, 36, 169, 116,
-    111, 111, 0, 0, 0, 28, 100, 97, 116, 97, 0, 0, 0, 1, 0, 0, 0, 0, 76,
-    97, 118, 102, 54, 49, 46, 51, 46, 49, 48, 51, 0, 0, 46, 46, 117, 117,
-    105, 100, 161, 200, 82, 153, 51, 70, 77, 184, 136, 240, 131, 245, 122,
-    117, 165, 239
-  ]);
+  var TEN_MB = 10 * 1024 * 1024;
+  var CATBOX_LIMIT = 200 * 1024 * 1024;
+  var LITTERBOX_LIMIT = 1024 * 1024 * 1024;
 
   function toast(msg) {
     stats.last = String(msg);
@@ -52,256 +35,203 @@
     } catch (e) {}
   }
 
-  function urlOf(input) {
-    if (typeof input === "string") return input;
-    if (input && typeof input.url === "string") return input.url;
-    return "";
-  }
-
-  function markSeen(kind, url) {
-    stats.seen += 1;
-    stats.last = kind + ": " + String(url).slice(0, 90);
-  }
-
-  function methodOf(input, init) {
-    return String((init && init.method) || (input && input.method) || "GET").toUpperCase();
-  }
-
-  function bodyOf(input, init) {
-    if (init && Object.prototype.hasOwnProperty.call(init, "body")) return init.body;
-    return input && input._bodyInit;
-  }
-
-  function cloneInit(input, init, body) {
-    var next = Object.assign({}, init || {});
-    if (!next.method && input && input.method) next.method = input.method;
-    if (!next.headers && input && input.headers) next.headers = input.headers;
-    next.body = body;
-    return next;
-  }
-
-  function isLargeMp4(file) {
-    var name = String((file && file.filename) || (file && file.name) || "").toLowerCase();
-    var type = String((file && file.content_type) || (file && file.type) || "").toLowerCase();
-    var size = Number((file && file.file_size) || (file && file.filesize) || (file && file.size) || 0);
-    return size > LARGE_MP4_BYTES && (name.endsWith(".mp4") || type.indexOf("video/mp4") >= 0);
-  }
-
-  function parseJsonBody(body) {
-    if (typeof body !== "string") return null;
+  function findByProps() {
     try {
-      return JSON.parse(body);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function tagFile(file) {
-    if (!file || !isLargeMp4(file)) return false;
-    var filename = String(file.filename || file.name || "clip.mp4");
-    var title = filename.replace(/\.[^.]+$/, "");
-    file.file_size = Number(file.file_size || file.filesize || file.size || 0) + CLIP_MAGIC_BYTES.byteLength;
-    file.is_clip = true;
-    file.is_spoiler = !!file.is_spoiler;
-    file.is_remix = false;
-    file.is_thumbnail = false;
-    file.clip_created_at = file.clip_created_at || new Date().toISOString();
-    file.clip_participant_ids = Array.isArray(file.clip_participant_ids) ? file.clip_participant_ids : [];
-    file.title = file.title || title;
-    file.application_id = file.application_id || DEFAULT_APPLICATION_ID;
-    uploadByName[filename] = {
-      filename: filename,
-      title: String(file.title),
-      createdAt: String(file.clip_created_at),
-      applicationId: String(file.application_id),
-      size: Number(file.file_size)
-    };
-    return true;
-  }
-
-  function patchAttachmentSlotBody(body) {
-    var json = parseJsonBody(body);
-    if (!json || !Array.isArray(json.files)) return body;
-    var changed = false;
-    json.files.forEach(function (file) {
-      if (tagFile(file)) changed = true;
-    });
-    if (!changed) return body;
-    stats.slots += 1;
-    toast("clip upload slot patched");
-    return JSON.stringify(json);
-  }
-
-  function rememberUploadResponse(response) {
-    try {
-      response.clone().json().then(function (json) {
-        var attachments = json && json.attachments;
-        if (!Array.isArray(attachments)) return;
-        attachments.forEach(function (att) {
-          var meta = uploadByName[String(att.filename || "")];
-          if (!meta) return;
-          if (att.upload_url) uploadByUrl[String(att.upload_url)] = meta;
-          if (att.upload_filename) uploadByName[String(att.upload_filename)] = meta;
-        });
-      }).catch(function () {});
+      if (typeof metro.findByProps === "function") {
+        return metro.findByProps.apply(metro, arguments);
+      }
     } catch (e) {}
-  }
 
-  async function toUint8Array(body) {
-    if (!body) return null;
-    if (body instanceof Uint8Array) return body;
-    if (typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer) return new Uint8Array(body);
-    if (body && typeof body.arrayBuffer === "function") return new Uint8Array(await body.arrayBuffer());
+    try {
+      if (typeof V.findByProps === "function") {
+        return V.findByProps.apply(V, arguments);
+      }
+    } catch (e) {}
+
     return null;
   }
 
-  async function appendMagicBytes(body) {
-    var src = await toUint8Array(body);
-    if (!src) return body;
-    var out = new Uint8Array(src.byteLength + CLIP_MAGIC_BYTES.byteLength);
-    out.set(src, 0);
-    out.set(CLIP_MAGIC_BYTES, src.byteLength);
-    stats.bodies += 1;
-    toast("clip bytes added");
-    return out;
+  function getSize(file) {
+    return Number(file && (
+      file.preCompressionSize ||
+      file.size ||
+      file.filesize ||
+      file.fileSize ||
+      (file.file && file.file.size)
+    )) || 0;
   }
 
-  function patchMessageBody(body) {
-    var json = parseJsonBody(body);
-    if (!json || !Array.isArray(json.attachments)) return body;
-    var changed = false;
-    json.attachments.forEach(function (att) {
-      var meta = uploadByName[String(att.uploaded_filename || att.filename || "")] || uploadByName[String(att.filename || "")];
-      if (!meta) return;
-      att.filesize = meta.size || Number(att.filesize || 0) + CLIP_MAGIC_BYTES.byteLength;
-      att.is_clip = true;
-      att.is_remix = false;
-      att.is_thumbnail = false;
-      att.clip_created_at = att.clip_created_at || meta.createdAt || new Date().toISOString();
-      att.clip_participant_ids = Array.isArray(att.clip_participant_ids) ? att.clip_participant_ids : [];
-      att.title = att.title || meta.title;
-      att.application_id = att.application_id || meta.applicationId || DEFAULT_APPLICATION_ID;
-      changed = true;
-    });
-    if (!changed) return body;
-    stats.messages += 1;
-    toast("message attachment patched");
-    return JSON.stringify(json);
+  function getFilename(file) {
+    return String(
+      (file && (file.filename || file.name)) ||
+      (file && file.file && (file.file.filename || file.file.name)) ||
+      "upload"
+    );
   }
 
-  function patchFetch() {
-    if (patched) return true;
-    if (typeof globalThis.fetch !== "function") return false;
-    originalFetch = globalThis.fetch;
-    globalThis.fetch = async function (input, init) {
-      var url = urlOf(input);
-      var method = methodOf(input, init);
-      var body = bodyOf(input, init);
-      var nextInit = init;
-      try {
-        if (method === "POST" && ATTACHMENTS_RE.test(url)) {
-          markSeen("fetch attachments", url);
-          nextInit = cloneInit(input, init, patchAttachmentSlotBody(body));
-          var slotResponse = await originalFetch.call(this, input, nextInit);
-          rememberUploadResponse(slotResponse);
-          return slotResponse;
-        }
-        if (method === "PUT" && uploadByUrl[url]) {
-          markSeen("fetch upload", url);
-          nextInit = cloneInit(input, init, await appendMagicBytes(body));
-          return originalFetch.call(this, input, nextInit);
-        }
-        if (method === "POST" && MESSAGES_RE.test(url)) {
-          markSeen("fetch message", url);
-          nextInit = cloneInit(input, init, patchMessageBody(body));
-          return originalFetch.call(this, input, nextInit);
-        }
-      } catch (e) {
-        toast("error: " + (e && e.message ? e.message : e));
-      }
-      return originalFetch.call(this, input, nextInit || init);
-    };
-    patched = true;
-    stats.patched = true;
-    return true;
+  function getMime(file) {
+    return String(
+      (file && (file.mimeType || file.type || file.contentType)) ||
+      (file && file.file && (file.file.mimeType || file.file.type)) ||
+      "application/octet-stream"
+    );
   }
 
-  function patchXhr() {
-    var XHR = globalThis.XMLHttpRequest;
-    if (xhrPatched) return true;
-    if (!XHR || !XHR.prototype || !XHR.prototype.open || !XHR.prototype.send) return false;
-
-    originalXhrOpen = XHR.prototype.open;
-    originalXhrSend = XHR.prototype.send;
-
-    XHR.prototype.open = function (method, url) {
-      this.__bslMethod = String(method || "GET").toUpperCase();
-      this.__bslUrl = String(url || "");
-      return originalXhrOpen.apply(this, arguments);
-    };
-
-    XHR.prototype.send = function (body) {
-      var xhr = this;
-      var url = String(xhr.__bslUrl || "");
-      var method = String(xhr.__bslMethod || "GET").toUpperCase();
-
-      try {
-        if (method === "POST" && ATTACHMENTS_RE.test(url)) {
-          markSeen("xhr attachments", url);
-          body = patchAttachmentSlotBody(body);
-          xhr.addEventListener("load", function () {
-            try {
-              var json = JSON.parse(String(xhr.responseText || ""));
-              var attachments = json && json.attachments;
-              if (!Array.isArray(attachments)) return;
-              attachments.forEach(function (att) {
-                var meta = uploadByName[String(att.filename || "")];
-                if (!meta) return;
-                if (att.upload_url) uploadByUrl[String(att.upload_url)] = meta;
-                if (att.upload_filename) uploadByName[String(att.upload_filename)] = meta;
-              });
-            } catch (e) {}
-          });
-        } else if (method === "PUT" && uploadByUrl[url]) {
-          markSeen("xhr upload", url);
-          appendMagicBytes(body).then(function (patchedBody) {
-            originalXhrSend.call(xhr, patchedBody);
-          }).catch(function (e) {
-            toast("xhr upload patch error: " + (e && e.message ? e.message : e));
-            originalXhrSend.call(xhr, body);
-          });
-          return;
-        } else if (method === "POST" && MESSAGES_RE.test(url)) {
-          markSeen("xhr message", url);
-          body = patchMessageBody(body);
-        }
-      } catch (e) {
-        toast("xhr error: " + (e && e.message ? e.message : e));
-      }
-
-      return originalXhrSend.call(xhr, body);
-    };
-
-    xhrPatched = true;
-    stats.xhrPatched = true;
-    return true;
+  function getUri(file) {
+    return file && (
+      (file.item && file.item.originalUri) ||
+      file.uri ||
+      file.fileUri ||
+      file.path ||
+      file.sourceURL ||
+      (file.file && (file.file.uri || file.file.fileUri || file.file.path || file.file.sourceURL))
+    );
   }
 
-  function unpatchFetch() {
-    if (patched && originalFetch) globalThis.fetch = originalFetch;
-    if (xhrPatched && originalXhrOpen && globalThis.XMLHttpRequest) {
-      globalThis.XMLHttpRequest.prototype.open = originalXhrOpen;
-      globalThis.XMLHttpRequest.prototype.send = originalXhrSend;
+  function formatBytes(size) {
+    if (!size) return "unknown size";
+    var units = ["B", "KB", "MB", "GB"];
+    var value = size;
+    var index = 0;
+    while (value >= 1024 && index < units.length - 1) {
+      value = value / 1024;
+      index += 1;
     }
-    patched = false;
-    xhrPatched = false;
-    stats.patched = false;
-    stats.xhrPatched = false;
-    originalFetch = null;
-    originalXhrOpen = null;
-    originalXhrSend = null;
-    uploadByUrl = {};
-    uploadByName = {};
+    return value.toFixed(index ? 1 : 0) + " " + units[index];
+  }
+
+  async function uploadForm(url, formData) {
+    var response = await fetch(url, { method: "POST", body: formData });
+    var text = await response.text();
+    if (!text || text.indexOf("https://") !== 0) {
+      throw new Error(text || "empty upload response");
+    }
+    return text.trim();
+  }
+
+  async function uploadToCatbox(uri, filename, mime) {
+    var formData = new FormData();
+    formData.append("reqtype", "fileupload");
+    if (storage.userhash && String(storage.userhash).trim()) {
+      formData.append("userhash", String(storage.userhash).trim());
+    }
+    formData.append("fileToUpload", { uri: uri, name: filename, type: mime });
+    return uploadForm("https://catbox.moe/user/api.php", formData);
+  }
+
+  async function uploadToLitterbox(uri, filename, mime) {
+    var formData = new FormData();
+    formData.append("reqtype", "fileupload");
+    formData.append("time", "1h");
+    formData.append("fileToUpload", { uri: uri, name: filename, type: mime });
+    return uploadForm("https://litterbox.catbox.moe/resources/internals/api.php", formData);
+  }
+
+  async function sendMessage(channelId, content) {
+    var MessageSender = findByProps("sendMessage");
+    if (!MessageSender || typeof MessageSender.sendMessage !== "function") return false;
+    await MessageSender.sendMessage(channelId, { content: content });
+    stats.sent += 1;
+    return true;
+  }
+
+  function copy(content) {
+    try {
+      if (RN && RN.Clipboard && RN.Clipboard.setString) {
+        RN.Clipboard.setString(content);
+        stats.copied += 1;
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function getChannelId(file) {
+    if (file && file.channelId) return file.channelId;
+    var ChannelStore = findByProps("getChannelId");
+    try {
+      return ChannelStore && ChannelStore.getChannelId && ChannelStore.getChannelId();
+    } catch (e) {}
+    return null;
+  }
+
+  function cancelUpload(file) {
+    try {
+      if (file && typeof file.setStatus === "function") file.setStatus("CANCELED");
+    } catch (e) {}
+  }
+
+  async function handleLargeUpload(file) {
+    var size = getSize(file);
+    var filename = getFilename(file);
+    var mime = getMime(file);
+    var uri = getUri(file);
+
+    if (size <= TEN_MB) return false;
+    if (!uri) {
+      toast("No local file URI found");
+      return false;
+    }
+    if (size > LITTERBOX_LIMIT) {
+      toast("File too large for fallback host");
+      return true;
+    }
+
+    stats.handled += 1;
+    var host = size > CATBOX_LIMIT ? "Litterbox" : "Catbox";
+    toast("Uploading " + formatBytes(size) + " to " + host);
+
+    try {
+      var link = size > CATBOX_LIMIT
+        ? await uploadToLitterbox(uri, filename, mime)
+        : await uploadToCatbox(uri, filename, mime);
+
+      cancelUpload(file);
+
+      var content = "[" + filename.replace(/\]/g, "") + "](" + link + ")";
+      var channelId = getChannelId(file);
+      var sent = channelId ? await sendMessage(channelId, content) : false;
+      if (sent) {
+        toast("Large file link sent");
+      } else if (copy(content)) {
+        toast("Large file link copied");
+      } else {
+        toast("Uploaded: " + link);
+      }
+    } catch (e) {
+      toast("Upload failed: " + (e && e.message ? e.message : e));
+    }
+
+    return true;
+  }
+
+  function patchUploader() {
+    var cloudUploadModule = findByProps("CloudUpload");
+    CloudUpload = cloudUploadModule && cloudUploadModule.CloudUpload;
+
+    if (!CloudUpload || !CloudUpload.prototype || typeof CloudUpload.prototype.reactNativeCompressAndExtractData !== "function") {
+      return false;
+    }
+
+    originalCompress = CloudUpload.prototype.reactNativeCompressAndExtractData;
+    CloudUpload.prototype.reactNativeCompressAndExtractData = async function () {
+      var handled = await handleLargeUpload(this);
+      if (handled) return null;
+      return originalCompress.apply(this, arguments);
+    };
+
+    stats.uploaderPatched = true;
+    return true;
+  }
+
+  function unpatchUploader() {
+    if (CloudUpload && CloudUpload.prototype && originalCompress) {
+      CloudUpload.prototype.reactNativeCompressAndExtractData = originalCompress;
+    }
+    CloudUpload = null;
+    originalCompress = null;
+    loaded = false;
+    stats.uploaderPatched = false;
   }
 
   function Settings() {
@@ -310,26 +240,24 @@
     var Text = RN.Text;
     return React.createElement(View, { style: { padding: 16 } },
       React.createElement(Text, { style: { color: "white", fontSize: 22, fontWeight: "800" } }, "Bypass Size Limit"),
-      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Send one large MP4 normally. This patches Discord's upload calls as they happen."),
-      React.createElement(Text, { style: { color: stats.patched ? "#6fdc8c" : "#ffb86b", marginTop: 14 } }, "Fetch patch: " + (stats.patched ? "active" : "inactive")),
-      React.createElement(Text, { style: { color: stats.xhrPatched ? "#6fdc8c" : "#ffb86b", marginTop: 4 } }, "XHR patch: " + (stats.xhrPatched ? "active" : "inactive")),
-      React.createElement(Text, { style: { color: "#ccc", marginTop: 8 } }, "Upload calls seen: " + stats.seen),
-      React.createElement(Text, { style: { color: "#ccc", marginTop: 8 } }, "Slots patched: " + stats.slots),
-      React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Upload bodies patched: " + stats.bodies),
-      React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Messages patched: " + stats.messages),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Large files are uploaded to Catbox or Litterbox, then a link is sent in the current chat."),
+      React.createElement(Text, { style: { color: stats.uploaderPatched ? "#6fdc8c" : "#ffb86b", marginTop: 14 } }, "Mobile upload hook: " + (stats.uploaderPatched ? "active" : "inactive")),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 8 } }, "Large uploads handled: " + stats.handled),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Links sent: " + stats.sent),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Links copied: " + stats.copied),
       React.createElement(Text, { style: { color: "#888", marginTop: 12 } }, "Last: " + stats.last)
     );
   }
 
   function onLoad() {
-    var fetchOk = patchFetch();
-    var xhrOk = patchXhr();
-    if (fetchOk || xhrOk) toast("Bypass Size Limit loaded");
-    else toast("Bypass Size Limit failed: no network patch available");
+    if (loaded) return;
+    loaded = true;
+    if (patchUploader()) toast("Bypass Size Limit loaded");
+    else toast("Bypass Size Limit failed: CloudUpload not found");
   }
 
   function onUnload() {
-    unpatchFetch();
+    unpatchUploader();
     toast("Bypass Size Limit unloaded");
   }
 
