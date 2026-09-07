@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.36-persistent-server-cache-759270446478000179-restore-selected-guild",
-  "version": "1.1.36"
+  "hash": "channel-media-gallery-v1.1.37-no-duplicate-media-persistent-server-cache-759270446478000179",
+  "version": "1.1.37"
 }
