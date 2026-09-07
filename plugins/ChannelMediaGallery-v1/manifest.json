@@ -2,8 +2,8 @@
   "name": "Channel Media Gallery v1",
   "description": "Shows the most recent image and video media from the current Discord channel in a compact Kettu gallery.",
   "authors": [{"name":"Artkos078"}],
-  "main": "index.js",
+  "main": "loader.js",
   "vendetta": {"icon":"ic_image_24px"},
-  "hash": "channel-media-gallery-v1.0.1-kettu-config-fix",
-  "version": "1.0.1"
+  "hash": "channel-media-gallery-v1.0.2-safe-loader",
+  "version": "1.0.2"
 }
