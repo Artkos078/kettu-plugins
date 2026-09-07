@@ -1,0 +1,18 @@
+{
+  "id": "kettu.bypass-size-limit",
+  "name": "Bypass Size Limit v1",
+  "version": "1.0.1",
+  "description": "Uploads oversized MP4 files as Discord clips from Kettu/Unbound without Vencord native helpers.",
+  "authors": [
+    {
+      "name": "Roo",
+      "id": "0"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "ic_upload_24px"
+  },
+  "hash": "bypass-size-limit-v1-1.0.1",
+  "license": "MIT"
+}
