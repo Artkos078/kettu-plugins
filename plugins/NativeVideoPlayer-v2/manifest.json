@@ -1,9 +1,15 @@
 {
   "name": "NativeVideoPlayer v2",
   "description": "Uses iOS's native URL/media handler for Discord server and DM video components by intercepting common Video src.videoURI fullscreen taps.",
-  "authors": [{"name":"ChatGPT"}],
+  "authors": [
+    {
+      "name": "ChatGPT"
+    }
+  ],
   "main": "index.js",
-  "vendetta": {"icon":"ic_play_24px"},
-  "hash": "nativevideoplayer-v2-318511c0392f887fe0109c65364ed3ea9dfe5538",
-  "version": "2.0.0"
+  "vendetta": {
+    "icon": "ic_play_24px"
+  },
+  "hash": "nativevideoplayer-v2-318511c0392f887fe0109c65364ed3ea9dfe5538-quiet-startup-2.0.1",
+  "version": "2.0.1"
 }
