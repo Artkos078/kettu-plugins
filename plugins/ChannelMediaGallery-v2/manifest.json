@@ -1,0 +1,15 @@
+{
+  "name": "Channel Media Gallery Fixed",
+  "description": "Direct-load channel media gallery for Kettu with saved media, filters, previews, server force loading, and no loader retry screen.",
+  "authors": [
+    {
+      "name": "Artkos078"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "ic_image_24px"
+  },
+  "hash": "channel-media-gallery-fixed-2.0.0-direct",
+  "version": "2.0.0"
+}
