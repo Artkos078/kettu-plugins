@@ -8,7 +8,7 @@ var ui=V.ui||{};
 var utils=V.utils||{};
 var React=common.React;
 var RN=common.ReactNative;
-var pstore=(V.plugin&&V.plugin.storage)||V.storage||{};
+var coreStorage={};
 var runtime=null;
 var loadError=null;
 var started=false;
@@ -29,14 +29,13 @@ function patchCore(js){
 
 async function fetchCore(){
   var bases=[];
-  try{if(V.plugin&&V.plugin.id)bases.push(String(V.plugin.id));}catch(e){}
   bases.push('https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ChannelMediaGallery-v1/');
   var f=(utils&&utils.safeFetch)||globalThis.fetch;
   if(!f)throw new Error('No fetch API');
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.13&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.30&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
@@ -51,7 +50,10 @@ async function start(){
   started=true;
   try{
     var src=patchCore(await fetchCore());
-    runtime=(0,eval)('(function(vendetta){return '+src+';})')(V);
+    var safeV={metro:V.metro,ui:V.ui,utils:V.utils,patcher:V.patcher,storage:coreStorage,plugin:{id:'',storage:coreStorage}};
+    runtime=(0,eval)('(function(vendetta){return '+src+';})')(safeV);
+    if(runtime&&runtime.default)runtime=runtime.default;
+    if(runtime&&runtime.default)runtime=runtime.default;
     if(runtime&&typeof runtime.onLoad==='function')runtime.onLoad();
     else if(runtime&&typeof runtime.start==='function')runtime.start();
     toast('Channel Media Gallery loader ready');
