@@ -590,8 +590,7 @@
   function onLoad() {
     if (timer) clearInterval(timer);
     timer = setInterval(rememberCurrentChannel, 1500);
-    toast("Channel Media Gallery loading after restart...");
-    delay(5000).then(function () { rememberCurrentChannel(); toast("Channel Media Gallery loaded"); }).catch(function () { toast("Channel Media Gallery loaded"); });
+    delay(5000).then(function () { rememberCurrentChannel(); }).catch(function () {});
   }
   function onUnload() { if (timer) clearInterval(timer); timer = null; toast("Channel Media Gallery unloaded"); }
   var plugin = { onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings }; return { default: plugin, __esModule: true, onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings, Settings: Settings, SettingsComponent: Settings, getSettingsPanel: Settings };
