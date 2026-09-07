@@ -36,7 +36,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.12&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.13&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
@@ -51,7 +51,7 @@ async function start(){
   started=true;
   try{
     var src=patchCore(await fetchCore());
-    runtime=(0,eval)(src);
+    runtime=(0,eval)('(function(vendetta){return '+src+';})')(V);
     if(runtime&&typeof runtime.onLoad==='function')runtime.onLoad();
     else if(runtime&&typeof runtime.start==='function')runtime.start();
     toast('Channel Media Gallery loader ready');
