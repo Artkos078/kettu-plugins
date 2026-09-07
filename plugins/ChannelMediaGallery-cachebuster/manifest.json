@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery Cachebuster",
-  "description": "Fresh install path for the Kettu channel media gallery with small loader, saved media, filters, previews, and server force loading.",
+  "description": "Fresh-path Kettu channel media gallery with small loader and safe storage core.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-cachebuster-1.1.20",
-  "version": "1.1.20"
+  "hash": "channel-media-gallery-cachebuster-1.1.26-small-loader",
+  "version": "1.1.26"
 }
