@@ -1,0 +1,9 @@
+{
+  "name": "PanicNav Gestures",
+  "description": "Gesture-only Back, Home, and Panic actions using Discord's built-in channel swipe events. No floating overlay.",
+  "authors": [{"name":"ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_arrow_back_24px"},
+  "hash": "panicnav-gestures-v1-0c8bf0c3c8fec87ceec6a419b0b55fe4e3ba0dbf",
+  "version": "1.0.0"
+}
