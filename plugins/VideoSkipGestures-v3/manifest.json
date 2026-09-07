@@ -1,0 +1,9 @@
+{
+  "name": "Video Skip Gestures v3",
+  "description": "Lightweight double-tap 10-second rewind/forward gestures for Discord's expanded video viewer.",
+  "authors": [{"name": "ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon": "ic_play_24px"},
+  "hash": "video-skip-gestures-v3-1caf5347ada767b6d933cac95e491a6c25bad8c7",
+  "version": "3.0.0"
+}
