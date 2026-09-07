@@ -22,6 +22,7 @@
   if (storage.filterMode == null) storage.filterMode = "all";
   if (storage.lastChannelId == null) storage.lastChannelId = null;
   if (storage.selectedChannelId == null) storage.selectedChannelId = null;
+  if (storage.nsfwChannelsOnly == null) storage.nsfwChannelsOnly = false;
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
 
   var status = { http: false, cache: false, last: "Not loaded" };
@@ -94,12 +95,27 @@
     return null;
   }
 
+  function isNsfwChannel(channel) {
+    if (!channel) return false;
+    if (channel.nsfw === true) return true;
+    try { if (typeof channel.isNSFW === "function" && channel.isNSFW()) return true; } catch (e) {}
+    var type = channel.type;
+    if (type === 10 || type === 11 || type === 12 || type === "PUBLIC_THREAD" || type === "PRIVATE_THREAD" || type === "ANNOUNCEMENT_THREAD") {
+      var parent = getChannel(channel.parent_id || channel.parentId);
+      if (parent && parent.nsfw === true) return true;
+      try { if (parent && typeof parent.isNSFW === "function") return !!parent.isNSFW(); } catch (e2) {}
+    }
+    return false;
+  }
+
   function getChannelRows(search) {
     var rows = [];
     var seen = {};
     var query = String(search || "").trim().toLowerCase();
     function add(channel, source) {
       if (!isTextChannel(channel) || seen[channel.id]) return;
+      var nsfw = isNsfwChannel(channel);
+      if (storage.nsfwChannelsOnly && !nsfw) return;
       var name = readChannelName(channel);
       if (query && String(channel.id).indexOf(query) === -1 && name.toLowerCase().indexOf(query) === -1) return;
       seen[channel.id] = true;
@@ -107,6 +123,7 @@
         id: String(channel.id),
         name: name || String(channel.id),
         guildId: String(channel.guild_id || channel.guildId || ""),
+        nsfw: nsfw,
         source: source || "channel"
       });
     }
@@ -250,6 +267,7 @@
     var max = Math.max(1, Math.min(500, Number(storage.maxMedia) || 200));
     var limit = Math.max(max, Math.min(800, Number(storage.fetchLimit) || 500));
     if (!channelId) throw new Error("Pick a channel or open one once so the plugin can see it.");
+    if (storage.nsfwChannelsOnly && !isNsfwChannel(getChannel(channelId))) throw new Error("Choose an NSFW channel from the explorer, or switch to All channels.");
     var remote = await getRemoteMessages(channelId, limit);
     var cached = getCachedMessages(channelId);
     var media = collectMedia(remote.concat(cached), max);
@@ -325,11 +343,15 @@
       var active = storage.filterMode === mode;
       return React.createElement(Pressable, { onPress: function () { storage.filterMode = mode; bump(); }, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 6, marginTop: 8, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
     }
+    function channelFilterButton(label, nsfwOnly) {
+      var active = storage.nsfwChannelsOnly === nsfwOnly;
+      return React.createElement(Pressable, { accessibilityRole: "button", accessibilityState: { selected: active }, onPress: function () { storage.nsfwChannelsOnly = nsfwOnly; bump(); }, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 6, marginTop: 8, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
+    }
     function channelRow(channel) {
       var active = storage.selectedChannelId === channel.id || (!storage.selectedChannelId && storage.lastChannelId === channel.id);
       return React.createElement(Pressable, { key: channel.id, onPress: function () { chooseChannel(channel.id); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginRight: 8, marginTop: 8, borderRadius: 8, borderWidth: 1, borderColor: active ? "#5865f2" : "#333", backgroundColor: active ? "#263168" : "#202020", maxWidth: 230 } },
         React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: active ? "900" : "700" } }, (channel.guildId ? "#" : "") + channel.name),
-        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, channel.source + " | " + channel.id)
+        React.createElement(Text, { numberOfLines: 1, style: { color: "#999", marginTop: 3, fontSize: 11 } }, (channel.nsfw ? "NSFW | " : "") + channel.source + " | " + channel.id)
       );
     }
     function tile(item, index) {
@@ -350,10 +372,12 @@
       React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery"),
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel here, scan it, then tap media for Discord's normal viewer. Long-press copies URL."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Selected: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
+      React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap" } }, channelFilterButton("All channels", false), channelFilterButton("NSFW channels only", true)),
+      storage.nsfwChannelsOnly && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "No loaded NSFW channels match. Try another search or switch to All channels.") : null,
       TextInput ? React.createElement(TextInput, { placeholder: "Search loaded channels or paste channel ID", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 2 } },
         channels.map(channelRow),
-        channelSearch && !channels.length ? React.createElement(Pressable, { onPress: function () { chooseChannel(channelSearch.trim()); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 8, borderRadius: 8, backgroundColor: "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, "Use typed channel ID")) : null
+        channelSearch && !channels.length && !storage.nsfwChannelsOnly ? React.createElement(Pressable, { onPress: function () { chooseChannel(channelSearch.trim()); }, style: { paddingVertical: 10, paddingHorizontal: 12, marginTop: 8, borderRadius: 8, backgroundColor: "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, "Use typed channel ID")) : null
       ),
       React.createElement(View, { style: { flexDirection: "row", marginTop: 16 } }, numberBox("Max media", "maxMedia"), numberBox("Messages scanned", "fetchLimit")),
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 8 } }, filterButton("All", "all"), filterButton("Pics", "image"), filterButton("Videos", "video"), filterButton("Embeds", "embed")),
