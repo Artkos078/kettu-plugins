@@ -7,7 +7,14 @@
   var React = common.React;
   var RN = common.ReactNative;
   var ui = V.ui || {};
-  var storage = (V.plugin && V.plugin.storage) || {};
+  var fallbackStorage = {};
+  function objectLike(value) { return value && (typeof value === "object" || typeof value === "function"); }
+  function getSafeStorage() {
+    try { if (V.plugin && objectLike(V.plugin.storage)) return V.plugin.storage; } catch (e) {}
+    try { if (objectLike(V.storage)) return V.storage; } catch (e2) {}
+    return fallbackStorage;
+  }
+  var storage = getSafeStorage();
 
   var CloudUpload = null;
   var originalCompress = null;
