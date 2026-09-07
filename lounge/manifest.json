@@ -1,9 +1,0 @@
-{
-  "name": "Lounge Auto Messages",
-  "description": "Returns to Messages after Kettu is backgrounded while viewing The Lounge.",
-  "authors": [{"name":"Artkos078"}],
-  "main": "index.js",
-  "vendetta": {"icon":"ic_message_24px"},
-  "hash": "kettu-lounge-auto-messages-v1.0.3",
-  "version": "1.0.3"
-}
