@@ -1,6 +1,6 @@
 {
   "name": "PrivateChats",
-  "description": "Hide selected DMs and servers until you manually unlock them with a passcode.",
+  "description": "Hide selected DMs and servers until you manually unlock them with a passcode. Fully configurable in-app.",
   "authors": [
     {
       "name": "ChatGPT"
@@ -11,5 +11,5 @@
     "icon": "ic_lock_24px"
   },
   "hash": "dev",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
