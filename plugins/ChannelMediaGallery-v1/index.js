@@ -494,13 +494,8 @@
     function chooseGuild(id) { storage.selectedGuildId = String(id); storage.selectedChannelId = null; setGuildPickerOpen(false); setChannelSearch(""); setChannels(getChannelRows("")); bump(); setMessage("Selected server: " + (readGuildName(getGuild(id)) || String(id))); }
     function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); var channel = getChannel(id); if (channel && (channel.guild_id || channel.guildId)) storage.selectedGuildId = String(channel.guild_id || channel.guildId); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
     async function runLoad() {
-      setLoading(true);
+      setLoading(true); setMessage("Scanning channel media...");
       try {
-        for (var wait = 5; wait > 0; wait--) {
-          setMessage("Starting scan in " + wait + "s...");
-          await delay(1000);
-        }
-        setMessage("Scanning channel media...");
         var result = await loadMedia(storage.selectedChannelId, storage.forceLoadChannels);
         setGuilds(getGuildRows(guildSearch)); setChannels(getChannelRows(channelSearch)); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media to cache from " + result.source + ". Channel: " + result.channelId);
       }
@@ -576,7 +571,12 @@
     );
   }
 
-  function onLoad() { rememberCurrentChannel(); if (timer) clearInterval(timer); timer = setInterval(rememberCurrentChannel, 1500); toast("Channel Media Gallery loaded"); }
+  function onLoad() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(rememberCurrentChannel, 1500);
+    toast("Channel Media Gallery loading after restart...");
+    delay(5000).then(function () { rememberCurrentChannel(); toast("Channel Media Gallery loaded"); }).catch(function () { toast("Channel Media Gallery loaded"); });
+  }
   function onUnload() { if (timer) clearInterval(timer); timer = null; toast("Channel Media Gallery unloaded"); }
   return { onLoad: onLoad, onUnload: onUnload, start: onLoad, stop: onUnload, settings: Settings };
 })()
