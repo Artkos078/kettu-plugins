@@ -1,0 +1,9 @@
+{
+  "name": "PrivateChats v5",
+  "description": "Hide selected DMs and servers until manually unlocked with a passcode. Legacy Kettu-compatible hybrid export.",
+  "authors": [{"name": "ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon": "ic_lock_24px"},
+  "hash": "ebd716170becf9916c73b8d9aafbab5329382e05",
+  "version": "0.5.0"
+}
