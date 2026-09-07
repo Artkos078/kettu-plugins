@@ -1,0 +1,9 @@
+{
+  "name": "PrivateChats v9",
+  "description": "Hide protected DMs and servers until manually unlocked with a passcode. Uses Kettu's scoped Vendetta API and current guild/DM list hooks.",
+  "authors": [{"name":"ChatGPT"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_lock_24px"},
+  "hash": "f51588227dd6781fa6d5ad20aadbb132d217f2f5d15737e225cbbd56dabd954d",
+  "version": "0.9.0"
+}
