@@ -35,7 +35,7 @@ async function fetchCore(){
   var last=null;
   for(var i=0;i<bases.length;i++){
     try{
-      var r=await f(bases[i]+'index.js?v=1.1.31&t='+Date.now(),{cache:'no-store'});
+      var r=await f(bases[i]+'index.js?v=1.1.32&t='+Date.now(),{cache:'no-store'});
       if(!r||!r.ok)throw new Error('HTTP '+(r&&r.status));
       var txt=await r.text();
       if(txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core file');
@@ -63,6 +63,20 @@ async function start(){
   }
 }
 
+
+function clearCache(){
+  try{
+    if(!coreStorage.channelMediaGallery)coreStorage.channelMediaGallery={};
+    coreStorage.channelMediaGallery.savedMedia=[];
+    coreStorage.channelMediaGallery.savedAt=null;
+    coreStorage.channelMediaGallery.savedChannelId=null;
+    coreStorage.channelMediaGallery.savedGuildId=null;
+    coreStorage.channelMediaGallery.selectedChannelId=null;
+    coreStorage.channelMediaGallery.selectedGuildId=null;
+    toast('Channel Media Gallery cache cleared');
+  }catch(e){loadError=e;toast('Clear cache failed: '+(e&&e.message?e.message:e));}
+}
+
 function stop(){
   started=false;
   try{if(runtime&&typeof runtime.onUnload==='function')runtime.onUnload();else if(runtime&&typeof runtime.stop==='function')runtime.stop();}catch(e){}
@@ -81,8 +95,10 @@ function Settings(){
   return React.createElement(View,{style:{padding:16}},
     React.createElement(Text,{style:{color:'white',fontSize:24,fontWeight:'900'}},'Channel Media Gallery'),
     React.createElement(Text,{style:{color:'#ffb86b',marginTop:10}},loadError?'Core load error: '+(loadError.message||String(loadError)):'Core is loading. Close and reopen this settings page.'),
-    React.createElement(Text,{style:{color:'#aaa',marginTop:10}},'This loader is active, so Kettu toggle/config is working. The gallery core loads from index.js.'),
-    Pressable?React.createElement(Pressable,{onPress:start,style:{marginTop:16,padding:13,borderRadius:8,backgroundColor:'#5865f2',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Retry Load Gallery Core')):null
+    React.createElement(Text,{style:{color:'#aaa',marginTop:10}},'This loader is active. Use Config to load the full gallery settings.'),
+    Pressable?React.createElement(Pressable,{onPress:start,style:{marginTop:16,padding:13,borderRadius:8,backgroundColor:'#5865f2',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Open Gallery Config')):null,
+    Pressable?React.createElement(Pressable,{onPress:start,style:{marginTop:10,padding:13,borderRadius:8,backgroundColor:'#323238',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Retry Load Gallery Core')):null,
+    Pressable?React.createElement(Pressable,{onPress:clearCache,style:{marginTop:10,padding:13,borderRadius:8,backgroundColor:'#5c2b2b',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Clear Cache')):null
   );
 }
 
