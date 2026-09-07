@@ -1,125 +1,25 @@
 (function(){
 'use strict';
-
 var V=(typeof vendetta!=='undefined'&&vendetta)||globalThis.vendetta||globalThis.revenge||globalThis.bunny||{};
-var metro=V.metro||{};
-var common=metro.common||{};
-var ui=V.ui||{};
-var utils=V.utils||{};
-var React=common.React;
-var RN=common.ReactNative;
-var runtime=null;
-var loadError=null;
-var loading=false;
-var started=false;
-var lastUrl='';
-var listeners=[];
-var loadSeq=0;
-
-function props(){try{return metro.findByProps&&metro.findByProps.apply(metro,arguments);}catch(e){return null;}}
-function toast(t){try{if(ui.toasts&&ui.toasts.showToast)ui.toasts.showToast(String(t));else if(ui.showToast)ui.showToast(String(t));}catch(e){try{console.log('[ChannelMediaGallery]',t);}catch(_){}}}
-function errText(e){try{return (e&&e.stack)||((e&&e.message)||String(e));}catch(_){return 'Unknown error';}}
-function notify(){loadSeq++;for(var i=0;i<listeners.length;i++){try{listeners[i](loadSeq);}catch(_){}}}
-function subscribe(fn){listeners.push(fn);return function(){listeners=listeners.filter(function(x){return x!==fn;});};}
-
-if(!React)React=props('createElement','useState')||globalThis.React;
-if(!RN)RN=props('View','Text','TextInput','Pressable','ScrollView')||{};
-
-function withSlash(x){x=String(x||'');return x&&x.charAt(x.length-1)!=='/'?x+'/':x;}
-function patchCore(js){
-  js=String(js||'');
-  js=js.replace('var V = globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};','var V = (typeof vendetta !== "undefined" && vendetta) || globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};');
-  return js;
-}
-
-function urls(){
-  var tag='v=1.1.19&cache=clear-20260907&t='+Date.now();
-  var out=[];
-  try{if(V.plugin&&V.plugin.id)out.push(withSlash(V.plugin.id)+'index.js?'+tag);}catch(e){}
-  out.push('https://cdn.jsdelivr.net/gh/Artkos078/kettu-plugins@main/plugins/ChannelMediaGallery-v1/index.js?'+tag);
-  out.push('https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ChannelMediaGallery-v1/index.js?'+tag);
-  out.push('https://github.com/Artkos078/kettu-plugins/raw/main/plugins/ChannelMediaGallery-v1/index.js?'+tag);
-  return out;
-}
-
-function timeout(ms,url){return new Promise(function(_,reject){setTimeout(function(){reject(new Error('Timed out fetching '+url));},ms);});}
-async function fetchText(url){
-  var f=(utils&&utils.safeFetch)||globalThis.fetch;
-  if(!f)throw new Error('No fetch API in Kettu');
-  var task=(async function(){
-    var r;
-    try{r=await f(url,{cache:'no-store'});}catch(e){r=await f(url);}
-    if(!r)throw new Error('Empty fetch response');
-    if(r.ok===false)throw new Error('HTTP '+(r.status||'?'));
-    if(typeof r.text==='function')return await r.text();
-    if(typeof r.body==='string')return r.body;
-    if(typeof r.data==='string')return r.data;
-    throw new Error('Fetch returned no text');
-  })();
-  return await Promise.race([task,timeout(9000,url)]);
-}
-
-async function loadCore(){
-  var list=urls();
-  var errors=[];
-  for(var i=0;i<list.length;i++){
-    lastUrl=list[i];
-    try{
-      var txt=await fetchText(list[i]);
-      if(!txt||txt.indexOf('Channel Media Gallery')<0)throw new Error('Wrong core text');
-      return patchCore(txt);
-    }catch(e){errors.push((i+1)+'. '+list[i]+' -> '+errText(e).split('\n')[0]);}
-  }
-  throw new Error(errors.join('\n'));
-}
-
-async function start(force){
-  if(loading)return;
-  if(started&&!force)return;
-  loading=true;
-  loadError=null;
-  notify();
-  try{
-    if(force)stop();
-    var src=await loadCore();
-    runtime=(0,eval)('(function(vendetta){return '+src+';})')(V);
-    if(runtime&&typeof runtime.onLoad==='function')runtime.onLoad();
-    else if(runtime&&typeof runtime.start==='function')runtime.start();
-    started=true;
-    toast('Channel Media Gallery loaded');
-    notify();
-  }catch(e){
-    loadError=e;
-    runtime=null;
-    started=false;
-    toast('Channel Media Gallery load failed; open config for details');
-    notify();
-  }finally{loading=false;notify();}
-}
-
-function stop(){
-  started=false;
-  try{if(runtime&&typeof runtime.onUnload==='function')runtime.onUnload();else if(runtime&&typeof runtime.stop==='function')runtime.stop();}catch(e){}
-  runtime=null;
-}
-
-function Settings(){
-  try{
-    if(React&&React.useState){var pair=React.useState(loadSeq);var setTick=pair[1];if(React.useEffect)React.useEffect(function(){return subscribe(setTick);},[]);}
-  }catch(_hook){}
-  try{if(!runtime&&!loading)start(false);}catch(_e){}
-  if(runtime&&runtime.settings){try{return React.createElement(runtime.settings,{});}catch(e){loadError=e;}}
-  if(runtime&&runtime.SettingsComponent){try{return React.createElement(runtime.SettingsComponent,{});}catch(e2){loadError=e2;}}
-  if(!React||!RN||!RN.View||!RN.Text)return null;
-  var View=RN.View,Text=RN.Text,Pressable=RN.Pressable||RN.TouchableOpacity,ScrollView=RN.ScrollView||View;
-  var detail=loadError?errText(loadError):(loading?'Loading gallery core...':'Open this page again or press retry.');
-  return React.createElement(ScrollView,{style:{padding:16}},
-    React.createElement(Text,{style:{color:'white',fontSize:24,fontWeight:'900'}},'Channel Media Gallery Loader 1.1.19'),
-    React.createElement(Text,{style:{color:loadError?'#ff6b6b':'#ffb86b',marginTop:10}},detail),
-    React.createElement(Text,{style:{color:'#aaa',marginTop:10}},'Last URL: '+(lastUrl||'none yet')),
-    Pressable?React.createElement(Pressable,{onPress:function(){start(true);},style:{marginTop:16,padding:13,borderRadius:8,backgroundColor:'#5865f2',alignItems:'center'}},React.createElement(Text,{style:{color:'white',fontWeight:'800'}},'Retry Load Gallery')):null
-  );
-}
-
-return{onLoad:start,onUnload:stop,start:start,stop:stop,settings:Settings,SettingsComponent:Settings};
+var m=V.metro||{},c=m.common||{},R=c.React||g('createElement','useState')||globalThis.React,N=c.ReactNative||g('View','Text','Pressable')||{},ui=V.ui||{};
+var root=(V.plugin&&V.plugin.storage)||V.storage||{};if(!root.channelMediaGalleryLite)root.channelMediaGalleryLite={};var S=root.channelMediaGalleryLite;
+if(!Array.isArray(S.items))S.items=[];if(!S.filter)S.filter='all';if(!S.limit)S.limit=80;if(!S.channelId)S.channelId=null;
+var timer=null,last='Ready';
+function g(){try{return m.findByProps&&m.findByProps.apply(m,arguments)}catch(e){return null}}
+function toast(x){last=String(x);try{(ui.toasts&&ui.toasts.showToast?ui.toasts.showToast:ui.showToast)(String(x))}catch(e){}try{console.log('[CMG]',x)}catch(e){}}
+function arr(x){var o=[];if(!x)return o;if(Array.isArray(x))return x;try{if(Array.isArray(x._array))return x._array}catch(e){}try{if(x.toArray)return x.toArray()}catch(e){}try{if(x.forEach){x.forEach(function(v){if(v)o.push(v)});if(o.length)return o}}catch(e){}try{Object.keys(x).forEach(function(k){if(x[k])o.push(x[k])})}catch(e){}return o}
+function curChan(){var names=['getChannelId','getLastSelectedChannelId','getCurrentlySelectedChannelId'];for(var i=0;i<names.length;i++){try{var mod=g(names[i]);if(mod&&typeof mod[names[i]]==='function'){var id=mod[names[i]]();if(id)return String(id)}}catch(e){}}return S.channelId||null}
+function remember(){var id=curChan();if(id)S.channelId=id;return id}
+function http(){var h=c.API||c.HTTP||g('get','post','put','del')||g('get','post','patch','del')||g('HTTP');return h&&h.get?h:null}
+async function req(url,q){var h=http();if(!h)throw Error('No Discord HTTP module');var r=await h.get({url:url,query:q||{}});var b=r&&((r.body!==undefined&&r.body)||(r.data!==undefined&&r.data)||r);if(typeof b==='string')b=JSON.parse(b);if(b&&Array.isArray(b.messages))b=b.messages;if(!Array.isArray(b))throw Error('Bad HTTP response');return b}
+function kindUrl(u,n,ct){u=String(u||'');n=String(n||'');ct=String(ct||'');var x=(u+' '+n+' '+ct).toLowerCase();if(/\.gif(\?|$)|image\/gif/.test(x))return'gif';if(/\.mp4|\.mov|\.webm|video\//.test(x))return'video';if(/\.png|\.jpe?g|\.webp|image\//.test(x))return'image';return null}
+function add(out,seen,it,msg,type){var u=it.url||it.proxy_url||it.proxyURL;if(!u||seen[u])return;seen[u]=1;out.push({url:String(u),proxyUrl:it.proxy_url||it.proxyURL||u,thumbnailUrl:it.thumbnail&&it.thumbnail.url||it.thumbnail_url||u,type:type,name:it.filename||it.name||type,width:it.width,height:it.height,messageId:String((msg&&msg.id)||''),channelId:String((msg&&msg.channel_id)||S.channelId||''),author:msg&&msg.author&&(msg.author.username||msg.author.global_name)||'',time:msg&&msg.timestamp||''})}
+function collect(msgs){var out=[],seen={};arr(msgs).forEach(function(msg){arr(msg.attachments).forEach(function(a){var t=kindUrl(a.url,a.filename,a.content_type);if(t)add(out,seen,a,msg,t)});arr(msg.embeds).forEach(function(e){if(e.image&&e.image.url)add(out,seen,e.image,msg,'embed');if(e.thumbnail&&e.thumbnail.url)add(out,seen,e.thumbnail,msg,'embed');if(e.video&&e.video.url)add(out,seen,e.video,msg,'video')})});return out}
+async function scan(id,setItems,setMsg){id=String(id||remember()||'');if(!id){setMsg&&setMsg('Open a channel first');return}try{setMsg&&setMsg('Scanning '+id+'...');var msgs=[],before=null;for(var p=0;p<4&&msgs.length<S.limit;p++){var q={limit:Math.min(100,S.limit-msgs.length)};if(before)q.before=before;var page=await req('/channels/'+id+'/messages',q);if(!page.length)break;msgs=msgs.concat(page);before=page[page.length-1].id}var items=collect(msgs);S.channelId=id;S.items=items;S.savedAt=Date.now();setItems(items);setMsg&&setMsg('Saved '+items.length+' media');toast('Saved '+items.length+' media')}catch(e){var t=e&&e.message?e.message:String(e);setMsg&&setMsg(t);toast(t)}}
+function pass(it,f){if(f==='all')return true;if(f==='pics')return it.type==='image';if(f==='videos')return it.type==='video';if(f==='gifs')return it.type==='gif';if(f==='embeds')return it.type==='embed';return true}
+function open(it,setMsg){var v=g('openMediaModal')||g('openMediaViewer');var fn=v&&(v.openMediaModal||v.openMediaViewer);if(!fn){setMsg('Native media modal unavailable');return}var src=it.type==='video'?{videoURI:it.url,uri:it.thumbnailUrl||it.proxyUrl||it.url,width:it.width,height:it.height}:{uri:it.proxyUrl||it.url,width:it.width,height:it.height};try{Promise.resolve(fn({initialSources:[src],initialIndex:0,channelId:it.channelId,messageId:it.messageId})).catch(function(e){setMsg(e.message||String(e))})}catch(e){setMsg(e.message||String(e))}}
+function onLoad(){try{remember()}catch(e){}try{if(timer)clearInterval(timer);timer=setInterval(function(){try{remember()}catch(e){}},1500)}catch(e){}toast('Channel Media Gallery lite loaded')}
+function onUnload(){try{if(timer)clearInterval(timer)}catch(e){}timer=null;toast('Channel Media Gallery unloaded')}
+function Settings(){if(!R||!N.View||!N.Text)return null;var View=N.View,Text=N.Text,Press=N.Pressable||N.TouchableOpacity,Scroll=N.ScrollView||View,Img=N.Image,Input=N.TextInput;var st=R.useState?R.useState(S.items||[]):[S.items,function(){}],items=st[0],setItems=st[1];var ms=R.useState?R.useState(last):[last,function(){}],msg=ms[0],setMsg=ms[1];var fs=R.useState?R.useState(S.filter):[S.filter,function(){}],f=fs[0],setF=fs[1];var cs=R.useState?R.useState(S.channelId||''):[S.channelId||'',function(){}],cid=cs[0],setCid=cs[1];function B(txt,cb,col){return Press?R.createElement(Press,{onPress:cb,style:{backgroundColor:col||'#5865f2',padding:12,borderRadius:10,marginTop:8,alignItems:'center'}},R.createElement(Text,{style:{color:'white',fontWeight:'800'}},txt)):null}function setFilter(x){S.filter=x;setF(x)}var shown=arr(items).filter(function(it){return pass(it,f)});return R.createElement(Scroll,{style:{padding:14}},R.createElement(Text,{style:{color:'white',fontSize:24,fontWeight:'900'}},'Channel Media Gallery Lite 1.1.21'),R.createElement(Text,{style:{color:'#aaa',marginTop:6}},'Current channel: '+(S.channelId||'none')+' • saved: '+arr(S.items).length),R.createElement(Text,{style:{color:'#ffb86b',marginTop:8}},String(msg||'')),Input?R.createElement(Input,{value:String(cid||''),onChangeText:function(t){S.channelId=t;setCid(t)},placeholder:'channel id optional',placeholderTextColor:'#777',style:{color:'white',borderColor:'#333',borderWidth:1,borderRadius:8,padding:10,marginTop:10}}):null,B('Scan Current / Channel ID',function(){scan(cid||S.channelId,setItems,setMsg)},'#5865f2'),B('Clear Pictures In Window',function(){setItems([]);setMsg('Window cleared; saved cache kept')},'#444'),R.createElement(View,{style:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:10}},['all','pics','videos','gifs','embeds'].map(function(x){return B(x,function(){setFilter(x)},x===f?'#43b581':'#333')})),R.createElement(Text,{style:{color:'#aaa',marginTop:10}},'Showing '+shown.length),R.createElement(View,{style:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:8}},shown.map(function(it,i){return Press?R.createElement(Press,{key:String(i),onPress:function(){open(it,setMsg)},onLongPress:function(){try{V.utils&&V.utils.clipboard&&V.utils.clipboard.setString(it.url);setMsg('Copied URL')}catch(e){}},style:{width:105,marginBottom:8}},Img?R.createElement(Img,{source:{uri:it.thumbnailUrl||it.proxyUrl||it.url},style:{width:105,height:105,borderRadius:8,backgroundColor:'#111'}}):R.createElement(Text,{style:{color:'white'}},it.type),R.createElement(Text,{style:{color:'#aaa',fontSize:11}},it.type)):null})));}
+return{onLoad:onLoad,onUnload:onUnload,start:onLoad,stop:onUnload,settings:Settings,SettingsComponent:Settings};
 })()
