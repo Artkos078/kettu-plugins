@@ -1,13 +1,33 @@
-(() => {
+(function () {
   "use strict";
 
-  const PLUGIN_ID = "kettu.bypass-size-limit";
-  const PLUGIN_NAME = "Bypass Size Limit";
-  const LARGE_MP4_BYTES = 25 * 1024 * 1024;
-  const DEFAULT_APPLICATION_ID = "1301689862256066560";
-  const DISCORD_API = "https://discord.com/api/v9";
+  var V = (typeof vendetta !== "undefined" && vendetta) || globalThis.vendetta || {};
+  var metro = V.metro || {};
+  var common = metro.common || {};
+  var React = common.React;
+  var RN = common.ReactNative;
+  var ui = V.ui || {};
+  var storage = (V.plugin && V.plugin.storage) || {};
 
-  const CLIP_MAGIC_BYTES = new Uint8Array([
+  var originalFetch = null;
+  var patched = false;
+  var uploadByUrl = {};
+  var uploadByName = {};
+  var stats = storage.bypassSizeLimitStats || {
+    patched: false,
+    slots: 0,
+    bodies: 0,
+    messages: 0,
+    last: "Not loaded"
+  };
+  storage.bypassSizeLimitStats = stats;
+
+  var LARGE_MP4_BYTES = 25 * 1024 * 1024;
+  var DEFAULT_APPLICATION_ID = "1301689862256066560";
+  var ATTACHMENTS_RE = /\/api\/v\d+\/channels\/(\d+)\/attachments(?:\?|$)/;
+  var MESSAGES_RE = /\/api\/v\d+\/channels\/(\d+)\/messages(?:\?|$)/;
+
+  var CLIP_MAGIC_BYTES = new Uint8Array([
     0, 0, 0, 89, 109, 101, 116, 97, 0, 0, 0, 0, 0, 0, 0, 33, 104, 100, 108, 114,
     0, 0, 0, 0, 0, 0, 0, 0, 109, 100, 105, 114, 97, 112, 112, 108, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 44, 105, 108, 115, 116, 0, 0, 0, 36, 169, 116,
@@ -17,345 +37,220 @@
     117, 165, 239
   ]);
 
-  let started = false;
-  let dropHandler = null;
-  let pasteHandler = null;
-  let webpackRequire = null;
-  const moduleCache = new Map();
-
-  function log(...args) {
-    console.log(`[${PLUGIN_NAME}]`, ...args);
-  }
-
-  function warn(...args) {
-    console.warn(`[${PLUGIN_NAME}]`, ...args);
-  }
-
-  function getWebpackRequire() {
-    if (webpackRequire) return webpackRequire;
-
+  function toast(msg) {
+    stats.last = String(msg);
     try {
-      const chunkName = "webpackChunkdiscord_app";
-      window[chunkName] = window[chunkName] || [];
-      window[chunkName].push([
-        [Math.random()],
-        {},
-        req => {
-          webpackRequire = req;
-        }
-      ]);
-      window[chunkName].pop();
-    } catch (err) {
-      warn("Could not capture webpack require.", err);
-    }
-
-    return webpackRequire;
-  }
-
-  function findModule(predicate, cacheKey) {
-    if (cacheKey && moduleCache.has(cacheKey)) return moduleCache.get(cacheKey);
-
-    const req = getWebpackRequire();
-    const cache = req && req.c;
-    if (!cache) return null;
-
-    for (const id in cache) {
-      const exports = cache[id] && cache[id].exports;
-      const candidates = [exports, exports && exports.default].filter(Boolean);
-
-      for (const candidate of candidates) {
-        try {
-          if (predicate(candidate)) {
-            if (cacheKey) moduleCache.set(cacheKey, candidate);
-            return candidate;
-          }
-        } catch {}
-      }
-    }
-
-    return null;
-  }
-
-  function findByProps(...props) {
-    return findModule(mod => props.every(prop => mod && prop in mod), props.join(":"));
-  }
-
-  function showToast(message, type) {
-    const toastModule = findModule(
-      mod => mod && (typeof mod.showToast === "function" || (mod.Toasts && typeof mod.Toasts.show === "function")),
-      "toast"
-    );
-
+      if (ui.toasts && ui.toasts.showToast) ui.toasts.showToast(String(msg));
+    } catch (e) {}
     try {
-      if (toastModule && typeof toastModule.showToast === "function") {
-        const toastTypes = toastModule.Toasts && toastModule.Toasts.Type;
-        const toastType = type === "success"
-          ? (toastTypes && toastTypes.SUCCESS) || "success"
-          : type === "failure"
-            ? (toastTypes && toastTypes.FAILURE) || "failure"
-            : (toastTypes && toastTypes.MESSAGE) || "message";
-        toastModule.showToast(message, toastType);
-        return;
-      }
-
-      if (toastModule && toastModule.Toasts && toastModule.Toasts.show && toastModule.Toasts.create) {
-        toastModule.Toasts.show(toastModule.Toasts.create(message, type || "message"));
-        return;
-      }
-    } catch (err) {
-      warn("Toast failed.", err);
-    }
-
-    log(message);
+      console.log("[Bypass Size Limit]", msg);
+    } catch (e) {}
   }
 
-  function getSelectedChannelId() {
-    const store = findByProps("getCurrentlySelectedChannelId");
-    return store && store.getCurrentlySelectedChannelId && store.getCurrentlySelectedChannelId();
+  function urlOf(input) {
+    if (typeof input === "string") return input;
+    if (input && typeof input.url === "string") return input.url;
+    return "";
   }
 
-  function getCurrentUser() {
-    const store = findByProps("getCurrentUser");
-    return store && store.getCurrentUser && store.getCurrentUser();
+  function methodOf(input, init) {
+    return String((init && init.method) || (input && input.method) || "GET").toUpperCase();
   }
 
-  function getToken() {
-    const tokenStore = findByProps("getToken");
-    const token = tokenStore && tokenStore.getToken && tokenStore.getToken();
-    if (!token) throw new Error("Could not read Discord token from client stores.");
-    return token;
+  function bodyOf(input, init) {
+    if (init && Object.prototype.hasOwnProperty.call(init, "body")) return init.body;
+    return input && input._bodyInit;
   }
 
-  async function apiRequest(method, path, body) {
-    const res = await fetch(`${DISCORD_API}${path}`, {
-      method,
-      headers: {
-        Authorization: getToken(),
-        "Content-Type": "application/json"
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Discord API ${res.status}: ${text.slice(0, 160) || res.statusText}`);
-    }
-
-    return res.json();
+  function cloneInit(input, init, body) {
+    var next = Object.assign({}, init || {});
+    if (!next.method && input && input.method) next.method = input.method;
+    if (!next.headers && input && input.headers) next.headers = input.headers;
+    next.body = body;
+    return next;
   }
 
-  async function readDetectableApps() {
-    const cacheKey = `${PLUGIN_ID}.detectable.v1`;
-    const cached = localStorage.getItem(cacheKey);
-
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.savedAt < 7 * 24 * 60 * 60 * 1000 && Array.isArray(parsed.apps)) {
-          return parsed.apps;
-        }
-      } catch {}
-    }
-
-    const res = await fetch(`${DISCORD_API}/applications/detectable`);
-    if (!res.ok) throw new Error(`Detectable app lookup failed: ${res.status}`);
-
-    const apps = await res.json();
-    localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), apps }));
-    return apps;
+  function isLargeMp4(file) {
+    var name = String((file && file.filename) || (file && file.name) || "").toLowerCase();
+    var type = String((file && file.content_type) || (file && file.type) || "").toLowerCase();
+    var size = Number((file && file.file_size) || (file && file.filesize) || (file && file.size) || 0);
+    return size > LARGE_MP4_BYTES && (name.endsWith(".mp4") || type.indexOf("video/mp4") >= 0);
   }
 
-  async function findApplicationId(fileName) {
-    const baseName = fileName.split("_")[0].replace(/\s+/g, "");
-    if (!baseName || baseName.length < 3) return DEFAULT_APPLICATION_ID;
-
+  function parseJsonBody(body) {
+    if (typeof body !== "string") return null;
     try {
-      const apps = await readDetectableApps();
-      const lowerInput = baseName.toLowerCase();
-      const cleanInput = lowerInput.replace(/[^a-z0-9]/g, "");
-
-      const match = apps.find(app => Array.isArray(app.executables) && app.executables.some(exe => {
-        if (!exe || exe.os !== "win32" || !exe.name) return false;
-        const rawName = exe.name.split("/").pop().toLowerCase();
-        const cleanName = rawName.replace(/\.exe$/i, "").replace(/[^a-z0-9]/g, "");
-        return rawName === lowerInput || rawName === `${lowerInput}.exe` ||
-          (cleanName.length >= 3 && (cleanInput.startsWith(cleanName) || cleanName.startsWith(cleanInput)));
-      }));
-
-      return (match && match.id) || DEFAULT_APPLICATION_ID;
-    } catch (err) {
-      warn("Using default clip application id.", err);
-      return DEFAULT_APPLICATION_ID;
+      return JSON.parse(body);
+    } catch (e) {
+      return null;
     }
   }
 
-  async function appendClipBytes(file) {
-    const source = new Uint8Array(await file.arrayBuffer());
-    const output = new Uint8Array(source.byteLength + CLIP_MAGIC_BYTES.byteLength);
-    output.set(source, 0);
-    output.set(CLIP_MAGIC_BYTES, source.byteLength);
-    return output;
-  }
-
-  async function uploadAsClip(file, channelId) {
-    if (!channelId) {
-      showToast("No channel detected.", "failure");
-      return;
-    }
-
-    const fileName = file.name || "clip.mp4";
-    const title = fileName.replace(/\.[^.]+$/, "");
-    const currentUser = getCurrentUser();
-    const createdAt = new Date().toISOString();
-
-    showToast(`[1/5] Preparing ${fileName}`, "message");
-    log("Processing", fileName);
-
-    const [taggedBuffer, applicationId] = await Promise.all([
-      appendClipBytes(file),
-      findApplicationId(fileName)
-    ]);
-
-    showToast("[2/5] Requesting upload slot", "message");
-    const attachmentData = await apiRequest("POST", `/channels/${channelId}/attachments`, {
-      files: [{
-        filename: fileName,
-        file_size: taggedBuffer.byteLength,
-        id: "0",
-        is_clip: true,
-        is_spoiler: false,
-        is_remix: false,
-        is_thumbnail: false,
-        clip_created_at: createdAt,
-        clip_participant_ids: currentUser && currentUser.id ? [currentUser.id] : [],
-        title,
-        application_id: applicationId
-      }]
-    });
-
-    const attachment = attachmentData && attachmentData.attachments && attachmentData.attachments[0];
-    if (!attachment || !attachment.upload_url || !attachment.upload_filename) {
-      throw new Error("Discord did not return an upload slot.");
-    }
-
-    showToast("[3/5] Uploading file", "message");
-    const uploadRes = await fetch(attachment.upload_url, {
-      method: "PUT",
-      body: taggedBuffer
-    });
-
-    if (!uploadRes.ok) {
-      throw new Error(`Cloud upload failed: ${uploadRes.status}`);
-    }
-
-    showToast("[4/5] Sending clip message", "message");
-    await apiRequest("POST", `/channels/${channelId}/messages`, {
-      content: "",
-      attachments: [{
-        id: "0",
-        filesize: taggedBuffer.byteLength,
-        filename: fileName,
-        uploaded_filename: attachment.upload_filename,
-        is_clip: true,
-        is_spoiler: false,
-        is_remix: false,
-        is_thumbnail: false,
-        clip_created_at: createdAt,
-        clip_participant_ids: currentUser && currentUser.id ? [currentUser.id] : [],
-        title,
-        application_id: applicationId
-      }]
-    });
-
-    showToast(`[5/5] Uploaded ${fileName}`, "success");
-    log("Upload complete.");
-  }
-
-  function collectLargeMp4s(fileList) {
-    return Array.from(fileList || []).filter(file => {
-      const isMp4 = /\.mp4$/i.test(file.name || "") || file.type === "video/mp4";
-      return isMp4 && file.size > LARGE_MP4_BYTES;
-    });
-  }
-
-  function handleFiles(fileList) {
-    const files = collectLargeMp4s(fileList);
-    if (!files.length) return false;
-
-    const channelId = getSelectedChannelId();
-    for (const file of files) {
-      uploadAsClip(file, channelId).catch(err => {
-        warn("Upload failed.", err);
-        showToast(`Upload failed: ${err.message || "Unknown error"}`, "failure");
-      });
-    }
-
+  function tagFile(file) {
+    if (!file || !isLargeMp4(file)) return false;
+    var filename = String(file.filename || file.name || "clip.mp4");
+    var title = filename.replace(/\.[^.]+$/, "");
+    file.file_size = Number(file.file_size || file.filesize || file.size || 0) + CLIP_MAGIC_BYTES.byteLength;
+    file.is_clip = true;
+    file.is_spoiler = !!file.is_spoiler;
+    file.is_remix = false;
+    file.is_thumbnail = false;
+    file.clip_created_at = file.clip_created_at || new Date().toISOString();
+    file.clip_participant_ids = Array.isArray(file.clip_participant_ids) ? file.clip_participant_ids : [];
+    file.title = file.title || title;
+    file.application_id = file.application_id || DEFAULT_APPLICATION_ID;
+    uploadByName[filename] = {
+      filename: filename,
+      title: String(file.title),
+      createdAt: String(file.clip_created_at),
+      applicationId: String(file.application_id),
+      size: Number(file.file_size)
+    };
     return true;
   }
 
-  const plugin = {
-    id: PLUGIN_ID,
-    name: PLUGIN_NAME,
-    description: "Uploads oversized MP4 files as Discord clips.",
-    version: "1.0.1",
-    authors: [{ name: "Roo", id: "0" }],
-
-    start() {
-      if (started) return;
-      started = true;
-
-      dropHandler = event => {
-        if (handleFiles(event.dataTransfer && event.dataTransfer.files)) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      };
-
-      pasteHandler = event => {
-        if (handleFiles(event.clipboardData && event.clipboardData.files)) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      };
-
-      window.addEventListener("drop", dropHandler, true);
-      window.addEventListener("paste", pasteHandler, true);
-      log("Started. Drop or paste an MP4 over 25 MB in a Discord channel.");
-    },
-
-    stop() {
-      if (!started) return;
-      started = false;
-
-      if (dropHandler) window.removeEventListener("drop", dropHandler, true);
-      if (pasteHandler) window.removeEventListener("paste", pasteHandler, true);
-      dropHandler = null;
-      pasteHandler = null;
-      log("Stopped.");
-    }
-  };
-
-  if (typeof module !== "undefined" && module.exports) {
-    module.exports = plugin;
+  function patchAttachmentSlotBody(body) {
+    var json = parseJsonBody(body);
+    if (!json || !Array.isArray(json.files)) return body;
+    var changed = false;
+    json.files.forEach(function (file) {
+      if (tagFile(file)) changed = true;
+    });
+    if (!changed) return body;
+    stats.slots += 1;
+    toast("clip upload slot patched");
+    return JSON.stringify(json);
   }
 
-  window.KettuBypassSizeLimit = plugin;
-  window.KettuPlugins = window.KettuPlugins || {};
-  window.KettuPlugins[PLUGIN_ID] = plugin;
-
-  const autoLoaders = [
-    window.Kettu && window.Kettu.plugins,
-    window.Unbound && window.Unbound.plugins,
-    window.KettuPluginsRegistry,
-    window.UnboundPluginsRegistry
-  ].filter(Boolean);
-
-  for (const loader of autoLoaders) {
+  function rememberUploadResponse(response) {
     try {
-      if (typeof loader.register === "function") loader.register(plugin);
-      else if (typeof loader.add === "function") loader.add(plugin);
-    } catch (err) {
-      warn("Plugin registry registration failed.", err);
-    }
+      response.clone().json().then(function (json) {
+        var attachments = json && json.attachments;
+        if (!Array.isArray(attachments)) return;
+        attachments.forEach(function (att) {
+          var meta = uploadByName[String(att.filename || "")];
+          if (!meta) return;
+          if (att.upload_url) uploadByUrl[String(att.upload_url)] = meta;
+          if (att.upload_filename) uploadByName[String(att.upload_filename)] = meta;
+        });
+      }).catch(function () {});
+    } catch (e) {}
   }
-})();
+
+  async function toUint8Array(body) {
+    if (!body) return null;
+    if (body instanceof Uint8Array) return body;
+    if (typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer) return new Uint8Array(body);
+    if (body && typeof body.arrayBuffer === "function") return new Uint8Array(await body.arrayBuffer());
+    return null;
+  }
+
+  async function appendMagicBytes(body) {
+    var src = await toUint8Array(body);
+    if (!src) return body;
+    var out = new Uint8Array(src.byteLength + CLIP_MAGIC_BYTES.byteLength);
+    out.set(src, 0);
+    out.set(CLIP_MAGIC_BYTES, src.byteLength);
+    stats.bodies += 1;
+    toast("clip bytes added");
+    return out;
+  }
+
+  function patchMessageBody(body) {
+    var json = parseJsonBody(body);
+    if (!json || !Array.isArray(json.attachments)) return body;
+    var changed = false;
+    json.attachments.forEach(function (att) {
+      var meta = uploadByName[String(att.uploaded_filename || att.filename || "")] || uploadByName[String(att.filename || "")];
+      if (!meta) return;
+      att.filesize = meta.size || Number(att.filesize || 0) + CLIP_MAGIC_BYTES.byteLength;
+      att.is_clip = true;
+      att.is_remix = false;
+      att.is_thumbnail = false;
+      att.clip_created_at = att.clip_created_at || meta.createdAt || new Date().toISOString();
+      att.clip_participant_ids = Array.isArray(att.clip_participant_ids) ? att.clip_participant_ids : [];
+      att.title = att.title || meta.title;
+      att.application_id = att.application_id || meta.applicationId || DEFAULT_APPLICATION_ID;
+      changed = true;
+    });
+    if (!changed) return body;
+    stats.messages += 1;
+    toast("message attachment patched");
+    return JSON.stringify(json);
+  }
+
+  function patchFetch() {
+    if (patched || typeof globalThis.fetch !== "function") return false;
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = async function (input, init) {
+      var url = urlOf(input);
+      var method = methodOf(input, init);
+      var body = bodyOf(input, init);
+      var nextInit = init;
+      try {
+        if (method === "POST" && ATTACHMENTS_RE.test(url)) {
+          nextInit = cloneInit(input, init, patchAttachmentSlotBody(body));
+          var slotResponse = await originalFetch.call(this, input, nextInit);
+          rememberUploadResponse(slotResponse);
+          return slotResponse;
+        }
+        if (method === "PUT" && uploadByUrl[url]) {
+          nextInit = cloneInit(input, init, await appendMagicBytes(body));
+          return originalFetch.call(this, input, nextInit);
+        }
+        if (method === "POST" && MESSAGES_RE.test(url)) {
+          nextInit = cloneInit(input, init, patchMessageBody(body));
+          return originalFetch.call(this, input, nextInit);
+        }
+      } catch (e) {
+        toast("error: " + (e && e.message ? e.message : e));
+      }
+      return originalFetch.call(this, input, nextInit || init);
+    };
+    patched = true;
+    stats.patched = true;
+    return true;
+  }
+
+  function unpatchFetch() {
+    if (patched && originalFetch) globalThis.fetch = originalFetch;
+    patched = false;
+    stats.patched = false;
+    originalFetch = null;
+    uploadByUrl = {};
+    uploadByName = {};
+  }
+
+  function Settings() {
+    if (!React || !RN) return null;
+    var View = RN.View;
+    var Text = RN.Text;
+    return React.createElement(View, { style: { padding: 16 } },
+      React.createElement(Text, { style: { color: "white", fontSize: 22, fontWeight: "800" } }, "Bypass Size Limit"),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Send one large MP4 normally. This patches Discord's upload calls as they happen."),
+      React.createElement(Text, { style: { color: stats.patched ? "#6fdc8c" : "#ffb86b", marginTop: 14 } }, "Fetch patch: " + (stats.patched ? "active" : "inactive")),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 8 } }, "Slots patched: " + stats.slots),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Upload bodies patched: " + stats.bodies),
+      React.createElement(Text, { style: { color: "#ccc", marginTop: 4 } }, "Messages patched: " + stats.messages),
+      React.createElement(Text, { style: { color: "#888", marginTop: 12 } }, "Last: " + stats.last)
+    );
+  }
+
+  function onLoad() {
+    if (patchFetch()) toast("Bypass Size Limit loaded");
+    else toast("Bypass Size Limit failed: fetch unavailable");
+  }
+
+  function onUnload() {
+    unpatchFetch();
+    toast("Bypass Size Limit unloaded");
+  }
+
+  return {
+    onLoad: onLoad,
+    onUnload: onUnload,
+    start: onLoad,
+    stop: onUnload,
+    settings: Settings
+  };
+})()
