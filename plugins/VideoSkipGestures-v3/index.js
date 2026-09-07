@@ -157,7 +157,7 @@ function Settings(){
 
 function onLoad(){
   patchMediaOverlay();
-  toast(status.overlay?'Video skip gestures v3.1 loaded':'Video skip gestures: media overlay hook missing');
+  if(!status.overlay)toast('Video skip gestures: media overlay hook missing');
 }
 function onUnload(){while(unpatches.length){try{unpatches.pop()();}catch(e){}}}
 return{onLoad:onLoad,onUnload:onUnload,settings:Settings};
