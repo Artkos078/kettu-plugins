@@ -19,6 +19,8 @@
   var timer = null;
   var fetchedChannels = {};
   var remoteChannels = {};
+  var SERVER_CACHE_GUILD_ID = "759270446478000179";
+  var persistentCache = V.channelMediaGalleryPersistent || null;
 
   if (storage.maxMedia == null) storage.maxMedia = 200;
   if (storage.fetchLimit == null) storage.fetchLimit = 500;
@@ -31,6 +33,54 @@
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
 
   var status = { http: false, cache: !!storage.savedAt, last: "Not loaded" };
+
+  function isPinnedGuild(guildId) {
+    return String(guildId || "") === SERVER_CACHE_GUILD_ID;
+  }
+
+  function readPinnedCache() {
+    try {
+      if (persistentCache && typeof persistentCache.load === "function") {
+        var saved = persistentCache.load();
+        if (saved && Array.isArray(saved.savedMedia) && isPinnedGuild(saved.savedGuildId)) return saved;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function writePinnedCache() {
+    try {
+      if (persistentCache && typeof persistentCache.save === "function" && isPinnedGuild(storage.savedGuildId)) {
+        persistentCache.save({
+          savedMedia: asArray(storage.savedMedia),
+          savedAt: storage.savedAt || null,
+          savedChannelId: storage.savedChannelId || null,
+          savedGuildId: storage.savedGuildId || null,
+          selectedChannelId: storage.selectedChannelId || null,
+          selectedGuildId: storage.selectedGuildId || null,
+          lastChannelId: storage.lastChannelId || null
+        });
+      }
+    } catch (e) {}
+  }
+
+  function clearPinnedCache() {
+    try { if (persistentCache && typeof persistentCache.clear === "function") persistentCache.clear(); } catch (e) {}
+  }
+
+  function restorePinnedCache() {
+    var saved = readPinnedCache();
+    if (!saved) return false;
+    storage.savedMedia = asArray(saved.savedMedia);
+    storage.savedAt = saved.savedAt || storage.savedAt || null;
+    storage.savedChannelId = saved.savedChannelId || storage.savedChannelId || null;
+    storage.savedGuildId = saved.savedGuildId || storage.savedGuildId || SERVER_CACHE_GUILD_ID;
+    storage.selectedChannelId = storage.selectedChannelId || saved.selectedChannelId || saved.savedChannelId || null;
+    storage.selectedGuildId = storage.selectedGuildId || saved.selectedGuildId || SERVER_CACHE_GUILD_ID;
+    storage.lastChannelId = storage.lastChannelId || saved.lastChannelId || saved.savedChannelId || null;
+    status.cache = true;
+    return true;
+  }
 
   function toast(message) {
     status.last = String(message);
@@ -437,7 +487,9 @@
     storage.savedChannelId = channelId;
     var savedChannel = getChannel(channelId);
     if (savedChannel && (savedChannel.guild_id || savedChannel.guildId)) storage.savedGuildId = String(savedChannel.guild_id || savedChannel.guildId);
+    else if (storage.selectedGuildId) storage.savedGuildId = String(storage.selectedGuildId);
     storage.savedAt = new Date().toISOString();
+    writePinnedCache();
     status.cache = true;
     return { channelId: channelId, media: media, source: "fresh history", openStatus: openStatus };
   }
@@ -593,7 +645,7 @@
       );
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.34"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery 1.1.35"),
       React.createElement(Pressable, { accessibilityRole: "button", onPress: function () { setMessage("Hi!"); toast("Hi!"); }, style: { padding: 12, marginTop: 10, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Hi")),
       storage.forceLoadChannels ? React.createElement(Pressable, { disabled: loading, onPress: refreshGuild, style: { padding: 12, marginTop: 12, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Force Load Server Channels")) : null,
       React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel, or enable Force load to pick a server and fetch one channel without opening it. Saved media stays cached until a successful run replaces it."),
@@ -623,7 +675,7 @@
       React.createElement(Pressable, { disabled: loading, onPress: runLoad, style: { marginTop: 16, padding: 13, borderRadius: 8, backgroundColor: loading ? "#444" : "#5865f2", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, loading ? "Scanning..." : storage.forceLoadChannels ? "Force Load Selected Channel Media" : "Run Selected Channel Media Scan")),
       loading && ActivityIndicator ? React.createElement(ActivityIndicator, { style: { marginTop: 14 } }) : null,
       React.createElement(Pressable, { disabled: loading, onPress: function () { setHidden(true); setItems([]); setMessage("Pictures cleared from this window. Saved cache unchanged."); }, style: { padding: 12, marginTop: 10, backgroundColor: "#323238", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Clear Pictures")),
-      React.createElement(Pressable, { disabled: loading, onPress: function () { storage.savedMedia = []; storage.savedAt = null; storage.savedChannelId = null; storage.savedGuildId = null; status.cache = false; setHidden(false); setItems([]); setMessage("Saved media cache cleared."); }, style: { padding: 12, marginTop: 10, backgroundColor: "#5c2b2b", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Clear Cache")),
+      React.createElement(Pressable, { disabled: loading, onPress: function () { storage.savedMedia = []; storage.savedAt = null; storage.savedChannelId = null; storage.savedGuildId = null; clearPinnedCache(); status.cache = false; setHidden(false); setItems([]); setMessage("Saved media cache cleared."); }, style: { padding: 12, marginTop: 10, backgroundColor: "#5c2b2b", borderRadius: 8 } }, React.createElement(Text, { style: { color: "white" } }, "Clear Cache")),
       React.createElement(Text, { style: { color: message.indexOf("Saved") === 0 || message.indexOf("Showing") === 0 ? "#6fdc8c" : "#ffb86b", marginTop: 12 } }, message),
       React.createElement(Text, { style: { color: "#777", marginTop: 6, fontSize: 12 } }, "HTTP: " + (status.http ? "OK" : "not used") + " | Cache: " + (status.cache ? "OK" : "not used")),
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 12, marginHorizontal: -4, paddingBottom: 30 } }, items.map(tile))
@@ -631,6 +683,7 @@
   }
 
   function onLoad() {
+    restorePinnedCache();
     if (timer) clearInterval(timer);
     timer = setInterval(rememberCurrentChannel, 1500);
     toast("Channel Media Gallery loading after restart...");
