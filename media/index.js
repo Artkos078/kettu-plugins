@@ -10,6 +10,7 @@ var RN=common.ReactNative;
 var pstore=(V.plugin&&V.plugin.storage)||{};
 var findByName=metro.findByName||function(){return null;};
 var findByDisplayName=metro.findByDisplayName||function(){return null;};
+var findByProps=metro.findByProps||function(){return null;};
 var toastApi=(V.ui&&V.ui.toasts)||{};
 var unpatches=[];
 var status={overlay:false};
@@ -17,6 +18,8 @@ var status={overlay:false};
 if(pstore.seconds==null)pstore.seconds=10;
 if(pstore.enabled==null)pstore.enabled=true;
 if(pstore.doubleTapMs==null)pstore.doubleTapMs=320;
+if(pstore.swipeDown==null)pstore.swipeDown=true;
+if(pstore.swipeDistance==null)pstore.swipeDistance=80;
 
 function toast(msg){try{toastApi.showToast&&toastApi.showToast(msg);}catch(e){}}
 function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
@@ -25,6 +28,7 @@ function GestureLayer(props){
   if(!React||!RN||pstore.enabled===false)return null;
   var View=RN.View;
   var Pressable=RN.Pressable||RN.TouchableOpacity||RN.TouchableWithoutFeedback;
+  var PanResponder=RN.PanResponder;
   if(!View||!Pressable)return null;
 
   var controls=props.controls;
@@ -66,13 +70,46 @@ function GestureLayer(props){
     }else ref.current=now;
   }
 
-  // Keep gesture receivers confined to the center of the media viewer.
-  // The top/bottom 30% and middle 50% horizontally are completely untouched,
-  // so Discord's X, menus, seek bar and other controls receive taps normally.
-  var hitStyle={position:'absolute',top:'30%',bottom:'30%',backgroundColor:'transparent'};
+  function dismissViewer(){
+    if(pstore.swipeDown===false)return false;
+    try{if(typeof props.closeMedia==='function'&&props.closeMedia())return true;}catch(e){}
+    try{
+      var modal=findByProps('popModal','pushModal');
+      if(modal&&typeof modal.popModal==='function'){modal.popModal();return true;}
+    }catch(e){}
+    try{
+      var navMod=findByProps('getRootNavigationRef');
+      var nav=navMod&&navMod.getRootNavigationRef&&navMod.getRootNavigationRef();
+      if(nav&&typeof nav.canGoBack==='function'&&nav.canGoBack()&&typeof nav.goBack==='function'){nav.goBack();return true;}
+    }catch(e){}
+    return false;
+  }
+
+  function makeSwipeResponder(){
+    if(!PanResponder||typeof PanResponder.create!=='function')return{panHandlers:{}};
+    return PanResponder.create({
+      onStartShouldSetPanResponder:function(){return false;},
+      onMoveShouldSetPanResponder:function(e,g){
+        if(pstore.swipeDown===false)return false;
+        return g.dy>14&&Math.abs(g.dy)>Math.abs(g.dx)*1.25;
+      },
+      onPanResponderRelease:function(e,g){
+        var threshold=clamp(Number(pstore.swipeDistance)||80,40,220);
+        if(g.dy>=threshold||g.vy>=0.85)dismissViewer();
+      },
+      onPanResponderTerminate:function(){}
+    });
+  }
+
+  var leftPan=React.useMemo(makeSwipeResponder,[]);
+  var rightPan=React.useMemo(makeSwipeResponder,[]);
+
+  // Gesture receivers stay in the center of the viewer, away from the X,
+  // menus, seek bar, and center playback controls.
+  var hitStyle={position:'absolute',top:'24%',bottom:'24%',backgroundColor:'transparent'};
   return React.createElement(View,{pointerEvents:'box-none',style:{position:'absolute',left:0,right:0,top:0,bottom:0,zIndex:40,elevation:40}},
-    React.createElement(Pressable,{pointerEvents:'auto',onPress:function(){doubleTap(-1);},style:Object.assign({},hitStyle,{left:0,width:'25%'}),accessibilityLabel:'Rewind '+pstore.seconds+' seconds'}),
-    React.createElement(Pressable,{pointerEvents:'auto',onPress:function(){doubleTap(1);},style:Object.assign({},hitStyle,{right:0,width:'25%'}),accessibilityLabel:'Forward '+pstore.seconds+' seconds'})
+    React.createElement(Pressable,Object.assign({},leftPan.panHandlers,{pointerEvents:'auto',onPress:function(){doubleTap(-1);},style:Object.assign({},hitStyle,{left:0,width:'25%'}),accessibilityLabel:'Rewind '+pstore.seconds+' seconds or swipe down to close'})),
+    React.createElement(Pressable,Object.assign({},rightPan.panHandlers,{pointerEvents:'auto',onPress:function(){doubleTap(1);},style:Object.assign({},hitStyle,{right:0,width:'25%'}),accessibilityLabel:'Forward '+pstore.seconds+' seconds or swipe down to close'}))
   );
 }
 
@@ -99,7 +136,17 @@ function patchMediaOverlay(){
         if(!source||!source.videoURI||typeof get!=='function')return ret;
         var controls=get(index,source);
         if(!controls||typeof controls.seek!=='function')return ret;
-        return React.createElement(React.Fragment,null,ret,React.createElement(GestureLayer,{controls:controls,key:'kettu-media-gestures'}));
+
+        function closeMedia(){
+          var names=['onClose','onDismiss','onRequestClose','close','dismiss'];
+          for(var i=0;i<names.length;i++){
+            try{if(typeof p[names[i]]==='function'){p[names[i]]();return true;}}catch(e){}
+          }
+          try{if(p.navigation&&typeof p.navigation.goBack==='function'){p.navigation.goBack();return true;}}catch(e){}
+          return false;
+        }
+
+        return React.createElement(React.Fragment,null,ret,React.createElement(GestureLayer,{controls:controls,closeMedia:closeMedia,key:'kettu-media-gestures'}));
       }catch(e){return ret;}
     });
     if(typeof u==='function')unpatches.push(u);
@@ -114,13 +161,17 @@ function Settings(){
   var s=React.useState(0),tick=s[0],setTick=s[1];
   function bump(){setTick(tick+1);}
   function row(label,key){return React.createElement(View,{style:{marginTop:16}},React.createElement(Text,{style:{color:'white',fontWeight:'700',marginBottom:6}},label),React.createElement(TextInput,{keyboardType:'number-pad',value:String(pstore[key]),onChangeText:function(v){var n=Number(v);if(Number.isFinite(n))pstore[key]=n;bump();},style:{borderWidth:1,borderColor:'#555',borderRadius:10,padding:11,color:'white'}}));}
+  function toggle(label,key){return React.createElement(View,{style:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:18}},React.createElement(Text,{style:{color:'white',flex:1,marginRight:12}},label),React.createElement(Switch,{value:pstore[key]!==false,onValueChange:function(v){pstore[key]=v;bump();}}));}
   return React.createElement(ScrollView,{style:{padding:16}},
     React.createElement(Text,{style:{color:'white',fontWeight:'900',fontSize:24}},'Kettu Media Gestures'),
     React.createElement(Text,{style:{color:'#aaa',marginTop:7}},'Uses Discord/Kettu media viewer only. No native iOS player.'),
     React.createElement(Text,{style:{color:status.overlay?'#6fdc8c':'#ffb86b',marginTop:12}},'Media overlay hook: '+(status.overlay?'OK':'missing')),
-    React.createElement(View,{style:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:18}},React.createElement(Text,{style:{color:'white'}},'Enable double-tap skip'),React.createElement(Switch,{value:pstore.enabled!==false,onValueChange:function(v){pstore.enabled=v;bump();}})),
-    row('Skip amount in seconds','seconds'),row('Double-tap window in ms','doubleTapMs'),
-    React.createElement(Text,{style:{color:'#777',marginTop:18,marginBottom:30}},'Gesture zones are limited to the center 40% vertically and outer 25% horizontally. The X and control bars are outside the touch layer.')
+    toggle('Enable media gestures','enabled'),
+    toggle('Swipe down to close','swipeDown'),
+    row('Swipe-down distance in px','swipeDistance'),
+    row('Skip amount in seconds','seconds'),
+    row('Double-tap window in ms','doubleTapMs'),
+    React.createElement(Text,{style:{color:'#777',marginTop:18,marginBottom:30}},'Double-tap the left/right sides to seek. Swipe downward on either side to dismiss the media viewer. Gesture zones stay away from the X and playback controls.')
   );
 }
 function onLoad(){patchMediaOverlay();toast(status.overlay?'Kettu media gestures loaded':'Kettu media gestures: overlay hook missing');}
