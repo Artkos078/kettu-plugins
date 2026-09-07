@@ -16,12 +16,14 @@
   var storageRoot = (V.plugin && V.plugin.storage) || V.storage || {};
   var storage = storageRoot.channelMediaGallery || (storageRoot.channelMediaGallery = {});
   var timer = null;
+  var fetchedChannels = {};
 
   if (storage.maxMedia == null) storage.maxMedia = 200;
   if (storage.fetchLimit == null) storage.fetchLimit = 500;
   if (storage.filterMode == null) storage.filterMode = "all";
   if (storage.lastChannelId == null) storage.lastChannelId = null;
   if (storage.selectedChannelId == null) storage.selectedChannelId = null;
+  if (storage.forceLoadChannels == null) storage.forceLoadChannels = false;
   if (storage.nsfwChannelsOnly == null) storage.nsfwChannelsOnly = false;
   if (!Array.isArray(storage.savedMedia)) storage.savedMedia = [];
 
@@ -110,6 +112,7 @@
 
   function channelHasLoadedMessages(channelId) {
     if (!channelId) return false;
+    if (fetchedChannels[String(channelId)]) return true;
     var MessageStore = findByProps("getMessages", "getMessage") || findByProps("getMessages");
     if (!MessageStore || typeof MessageStore.getMessages !== "function") return false;
     try { return asArray(MessageStore.getMessages(String(channelId))).length > 0; } catch (e) { return false; }
@@ -119,6 +122,7 @@
     if (!isTextChannel(channel)) return false;
     var id = String(channel.id || "");
     if (!id) return false;
+    if (storage.forceLoadChannels) return true;
     if (source === "current") return true;
     if ((source === "selected" || source === "saved") && getChannel(id)) return true;
     return channelHasLoadedMessages(id);
@@ -140,7 +144,7 @@
         name: name || String(channel.id),
         guildId: String(channel.guild_id || channel.guildId || ""),
         nsfw: nsfw,
-        source: source || "loaded"
+        source: channelHasLoadedMessages(channel.id) ? "loaded" : "fetch on scan"
       });
     }
     add(getChannel(storage.selectedChannelId), "selected");
@@ -166,7 +170,7 @@
         Object.keys(guildChannels || {}).forEach(function (key) {
           var value = guildChannels[key];
           var channel = value && value.channel ? value.channel : value;
-          if (channelHasLoadedMessages(channel && channel.id)) add(channel, "loaded");
+          add(channel, "loaded");
         });
       }
     } catch (e2) {}
@@ -184,6 +188,10 @@
     if (value.indexOf("image/") === 0 || /\.(png|jpe?g|gif|webp|bmp|heic|heif)(\?|#|$)/i.test(value)) return "image";
     if (value.indexOf("video/") === 0 || /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(value)) return "video";
     return "embed";
+  }
+
+  function isGif(item) {
+    return !!item.isGif || /(?:image\/gif|\.gif(?:\?|#|$))/i.test(String(item.url || "") + " " + String(item.name || ""));
   }
 
   function pushMedia(items, seen, message, raw, origin) {
@@ -204,6 +212,7 @@
       width: Number(raw.width) || 0,
       height: Number(raw.height) || 0,
       type: type,
+      isGif: raw.isGif === true || /image\/gif/i.test(contentType) || /\.gif(\?|#|$)/i.test(url) || /\.gif$/i.test(name),
       origin: origin || (type === "embed" ? "embed" : "attachment"),
       name: String(name),
       messageId: String((message && message.id) || ""),
@@ -224,7 +233,7 @@
         if (embed.thumbnail) pushMedia(items, seen, message, Object.assign({}, embed.thumbnail, { content_type: "image/*" }), "embed");
         var poster = embed.thumbnail || embed.image;
         var posterUrl = poster && (poster.proxy_url || poster.proxyURL || poster.url);
-        if (embed.video) pushMedia(items, seen, message, Object.assign({}, embed.video, { content_type: "video/*", thumbnailUrl: posterUrl }), "embed");
+        if (embed.video) pushMedia(items, seen, message, Object.assign({}, embed.video, { content_type: "video/*", thumbnailUrl: posterUrl, isGif: embed.type === "gifv" }), "embed");
         if (embed.url) pushMedia(items, seen, message, { url: embed.url, title: embed.title || "embed", thumbnailUrl: posterUrl }, "embed");
       });
     });
@@ -278,6 +287,7 @@
     var mode = storage.filterMode || "all";
     return asArray(items).filter(function (item) {
       if (mode === "all") return true;
+      if (mode === "gif") return isGif(item);
       if (mode === "image") return item.type === "image";
       if (mode === "video") return item.type === "video";
       if (mode === "embed") return item.origin === "embed" || item.type === "embed";
@@ -285,14 +295,16 @@
     });
   }
 
-  async function loadMedia(channelId) {
+  async function loadMedia(channelId, force) {
     channelId = channelId || storage.selectedChannelId || rememberCurrentChannel();
     var max = Math.max(1, Math.min(500, Number(storage.maxMedia) || 200));
     var limit = Math.max(max, Math.min(800, Number(storage.fetchLimit) || 500));
     if (!channelId) throw new Error("Pick a loaded channel, or open the channel in Discord once so the plugin can see it.");
     if (storage.nsfwChannelsOnly && !isNsfwChannel(getChannel(channelId))) throw new Error("Choose an NSFW channel from the explorer, or switch to All channels.");
     var remote = await getRemoteMessages(channelId, limit);
-    var cached = getCachedMessages(channelId);
+    if (force && !remote.length) throw new Error("Could not fetch channel history: it may be empty, inaccessible, or fetching may be unavailable on this build. Saved gallery kept.");
+    if (remote.length) fetchedChannels[String(channelId)] = true;
+    var cached = force ? [] : getCachedMessages(channelId);
     var media = collectMedia(remote.concat(cached), max);
     if (!media.length) throw new Error(remote.length || cached.length ? "No media found in scanned messages." : "No messages found. Open or scroll that channel once, then run again.");
     storage.savedMedia = media;
@@ -341,6 +353,7 @@
   function previewUrls(item) {
     var urls = [];
     function add(url) { if (url && urls.indexOf(url) === -1) urls.push(url); }
+    if (isGif(item) && item.type === "image") add(item.url);
     add(item.thumbnailUrl);
     var source = item.proxyUrl || item.url || "";
     if (item.type === "video") {
@@ -366,6 +379,7 @@
       !loaded ? React.createElement(RN.Text, { numberOfLines: 3, style: { color: "#bbb", padding: 8, fontSize: 11, textAlign: "center" } }, uri ? "Loading preview…" : "Preview unavailable\n" + (item.name || "Tap to open")) : null,
       uri && RN.Image ? React.createElement(RN.Image, { key: uri, source: { uri: uri }, resizeMode: "cover", onLoad: function () { setLoaded(true); }, onError: function () { setLoaded(false); setAttempt(attempt + 1); }, style: { position: "absolute", left: 0, top: 0, width: "100%", height: 112 } }) : null,
       item.type === "video" ? React.createElement(RN.Text, { style: { position: "absolute", right: 6, bottom: 6, color: "white", backgroundColor: "#0009", padding: 5, borderRadius: 6, fontSize: 18 } }, "▶") : null,
+      isGif(item) ? React.createElement(RN.Text, { style: { position: "absolute", right: 5, top: 5, color: "white", backgroundColor: "#0009", padding: 3, fontSize: 10 } }, "GIF") : null,
       item.origin === "embed" ? React.createElement(RN.Text, { style: { position: "absolute", left: 5, top: 5, color: "white", backgroundColor: "#0009", padding: 3, fontSize: 10 } }, "EMBED") : null
     );
   }
@@ -387,7 +401,7 @@
     function chooseChannel(id) { storage.selectedChannelId = String(id); storage.lastChannelId = String(id); setPickerOpen(false); bump(); setMessage("Selected channel: " + String(id)); }
     async function runLoad() {
       setLoading(true); setMessage("Scanning channel media...");
-      try { var result = await loadMedia(storage.selectedChannelId); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media from " + result.source + ". Channel: " + result.channelId); }
+      try { var result = await loadMedia(storage.selectedChannelId, storage.forceLoadChannels); setChannels(getChannelRows(channelSearch)); setItems(filtered(result.media)); setMessage("Saved " + result.media.length + " media from " + result.source + ". Channel: " + result.channelId); }
       catch (e) { setMessage(e && e.message ? e.message : String(e)); }
       setLoading(false);
     }
@@ -421,21 +435,23 @@
     }
     return React.createElement(ScrollView, { style: { padding: 16 } },
       React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Channel Media Gallery"),
-      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a channel Discord has loaded, scan it, then tap media for Discord's normal viewer. Long-press copies URL."),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "Pick a loaded channel or enable Force load to fetch another channel, then tap media for Discord's normal viewer. Long-press copies URL."),
       React.createElement(Text, { style: { color: "#777", marginTop: 10 } }, "Saved: " + storage.savedMedia.length + " | Showing: " + items.length + " | Selected: " + (storage.selectedChannelId || storage.savedChannelId || storage.lastChannelId || "none")),
       React.createElement(Pressable, { accessibilityRole: "button", accessibilityLabel: "Choose channel", accessibilityState: { expanded: pickerOpen }, onPress: function () { setChannels(getChannelRows(channelSearch)); setPickerOpen(!pickerOpen); }, style: { marginTop: 14, padding: 12, borderWidth: 1, borderColor: "#555", borderRadius: 8, backgroundColor: "#202020" } }, React.createElement(Text, { numberOfLines: 1, style: { color: "white", fontWeight: "700" } }, (pickerOpen ? "▴ " : "▾ ") + selectedName + (storage.nsfwChannelsOnly ? " · NSFW only" : ""))),
       pickerOpen ? React.createElement(View, { style: { padding: 8, borderWidth: 1, borderColor: "#444", borderRadius: 8, marginTop: 4 } },
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap" } }, channelFilterButton("All channels", false), channelFilterButton("NSFW channels only", true)),
-      storage.nsfwChannelsOnly && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "No loaded NSFW channels match. Open or scroll an NSFW channel once, then come back and refresh this dropdown.") : null,
-      TextInput ? React.createElement(TextInput, { placeholder: "Search loaded channels", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
+      React.createElement(Pressable, { accessibilityRole: "switch", accessibilityState: { checked: storage.forceLoadChannels }, onPress: function () { storage.forceLoadChannels = !storage.forceLoadChannels; bump(); }, style: { padding: 10, marginTop: 8, borderRadius: 8, backgroundColor: storage.forceLoadChannels ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white" } }, "Force load channels: " + (storage.forceLoadChannels ? "ON" : "OFF"))),
+      React.createElement(Text, { style: { color: "#aaa", marginTop: 6 } }, storage.forceLoadChannels ? "Choose a channel, then run the scan to fetch its history without opening it." : "Only loaded channels are listed. Enable Force load to choose other channels."),
+      storage.nsfwChannelsOnly && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 8 } }, "No NSFW channels match. Try enabling Force load or changing your search.") : null,
+      TextInput ? React.createElement(TextInput, { placeholder: storage.forceLoadChannels ? "Search channels" : "Search loaded channels", placeholderTextColor: "#777", value: channelSearch, onChangeText: function (value) { setChannelSearch(value); setChannels(getChannelRows(value)); }, style: { color: "white", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 14 } }) : null,
       React.createElement(ScrollView, { nestedScrollEnabled: true, keyboardShouldPersistTaps: "handled", style: { maxHeight: 280, marginTop: 2 } },
         channels.map(channelRow),
-        channelSearch && !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 10, lineHeight: 18 } }, "No loaded channels match. To load one, open that channel in Discord or scroll it once, then return here and reopen the dropdown.") : null
+        !channels.length ? React.createElement(Text, { style: { color: "#aaa", marginTop: 10, lineHeight: 18 } }, "No channels match. Enable Force load to include channels without loaded messages, or change your search.") : null
       ),
       ) : null,
       React.createElement(View, { style: { flexDirection: "row", marginTop: 16 } }, numberBox("Max media", "maxMedia"), numberBox("Messages scanned", "fetchLimit")),
-      React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 8 } }, filterButton("All", "all"), filterButton("Pics", "image"), filterButton("Videos", "video"), filterButton("Embeds", "embed")),
-      React.createElement(Pressable, { disabled: loading, onPress: runLoad, style: { marginTop: 16, padding: 13, borderRadius: 8, backgroundColor: loading ? "#444" : "#5865f2", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, loading ? "Scanning..." : "Run Selected Channel Media Scan")),
+      React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap", marginTop: 8 } }, filterButton("All", "all"), filterButton("Pics", "image"), filterButton("Videos", "video"), filterButton("GIFs", "gif"), filterButton("Embeds", "embed")),
+      React.createElement(Pressable, { disabled: loading, onPress: runLoad, style: { marginTop: 16, padding: 13, borderRadius: 8, backgroundColor: loading ? "#444" : "#5865f2", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, loading ? "Scanning..." : storage.forceLoadChannels ? "Force Load Selected Channel Media" : "Run Selected Channel Media Scan")),
       loading && ActivityIndicator ? React.createElement(ActivityIndicator, { style: { marginTop: 14 } }) : null,
       React.createElement(Text, { style: { color: message.indexOf("Saved") === 0 || message.indexOf("Showing") === 0 ? "#6fdc8c" : "#ffb86b", marginTop: 12 } }, message),
       React.createElement(Text, { style: { color: "#777", marginTop: 6, fontSize: 12 } }, "HTTP: " + (status.http ? "OK" : "not used") + " | Cache: " + (status.cache ? "OK" : "not used")),
