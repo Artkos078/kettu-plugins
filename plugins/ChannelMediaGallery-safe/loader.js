@@ -8,21 +8,22 @@ var utils=V.utils||{};
 var React=common.React||null;
 var RN=common.ReactNative||null;
 var runtime=null;
+var coreStorage={};
 var loading=false;
 var error=null;
 var last='Ready';
 var corePath='ChannelMediaGallery-safe';
-var title='Channel Media Gallery Safe Config 1.1.26';
+var title='Channel Media Gallery Safe Config 1.1.27';
 function find(){try{return metro.findByProps&&metro.findByProps.apply(metro,arguments);}catch(e){return null;}}
 if(!React)React=find('createElement','useState')||globalThis.React;
 if(!RN)RN=find('View','Text','Pressable','ScrollView')||{};
 function say(x){last=String(x);try{if(ui.toasts&&ui.toasts.showToast)ui.toasts.showToast(String(x));else if(ui.showToast)ui.showToast(String(x));}catch(e){}try{console.log('[ChannelMediaGallery]',x);}catch(e2){}}
 function text(e){try{return (e&&e.message)||String(e);}catch(_){return 'Unknown error';}}
 function patch(s){s=String(s||'');return s.replace('var V = globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};','var V = (typeof vendetta !== "undefined" && vendetta) || globalThis.vendetta || globalThis.revenge || globalThis.bunny || {};');}
-function urlList(){var t='v=1.1.26&t='+Date.now();var a=[];try{if(V.plugin&&V.plugin.id)a.push(String(V.plugin.id).replace(/\/?$/,'/')+'index.js?'+t);}catch(e){}a.push('https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/'+corePath+'/index.js?'+t);return a;}
+function urlList(){var t='v=1.1.27&t='+Date.now();var a=[];try{if(V.plugin&&V.plugin.id)a.push(String(V.plugin.id).replace(/\/?$/,'/')+'index.js?'+t);}catch(e){}a.push('https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/'+corePath+'/index.js?'+t);return a;}
 function timeout(ms,u){return new Promise(function(_,rej){setTimeout(function(){rej(new Error('Timeout: '+u));},ms);});}
 async function fetchText(u){var f=(utils&&utils.safeFetch)||globalThis.fetch;if(!f)throw new Error('No fetch API');var p=(async function(){var r;try{r=await f(u,{cache:'no-store'});}catch(e){r=await f(u);}if(!r)throw new Error('No response');if(r.ok===false)throw new Error('HTTP '+(r.status||'?'));if(typeof r.text==='function')return await r.text();if(typeof r.body==='string')return r.body;if(typeof r.data==='string')return r.data;throw new Error('No text body');})();return await Promise.race([p,timeout(8000,u)]);}
-async function load(force){if(loading)return;if(runtime&&!force)return;loading=true;error=null;say('Loading gallery...');var urls=urlList(),errs=[];try{for(var i=0;i<urls.length;i++){try{var src=await fetchText(urls[i]);if(!src||src.indexOf('Channel Media Gallery')<0)throw new Error('Wrong file');runtime=(0,eval)('(function(vendetta){return '+patch(src)+';})')(V);if(runtime&&runtime.default)runtime=runtime.default;if(runtime&&runtime.onLoad)runtime.onLoad();else if(runtime&&runtime.start)runtime.start();say('Channel Media Gallery loaded');return;}catch(e){errs.push(urls[i]+' -> '+text(e));}}throw new Error(errs.join('\n'));}catch(e2){error=e2;say('Gallery load failed');}finally{loading=false;}}
+async function load(force){if(loading)return;if(runtime&&!force)return;loading=true;error=null;say('Loading gallery...');var urls=urlList(),errs=[];try{for(var i=0;i<urls.length;i++){try{var src=await fetchText(urls[i]);if(!src||src.indexOf('Channel Media Gallery')<0)throw new Error('Wrong file');var CV={metro:V.metro,ui:V.ui,utils:V.utils,patcher:V.patcher,storage:coreStorage,plugin:{id:(V.plugin&&V.plugin.id)||'',storage:coreStorage}};runtime=(0,eval)('(function(vendetta){return '+patch(src)+';})')(CV);if(runtime&&runtime.default)runtime=runtime.default;if(runtime&&runtime.onLoad)runtime.onLoad();else if(runtime&&runtime.start)runtime.start();say('Channel Media Gallery loaded');return;}catch(e){errs.push(urls[i]+' -> '+text(e));}}throw new Error(errs.join('\n'));}catch(e2){error=e2;say('Gallery load failed');}finally{loading=false;}}
 function onLoad(){return load(false);}
 function onUnload(){try{if(runtime&&runtime.onUnload)runtime.onUnload();else if(runtime&&runtime.stop)runtime.stop();}catch(e){}runtime=null;}
 function Settings(){
