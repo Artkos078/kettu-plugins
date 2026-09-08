@@ -758,7 +758,7 @@
       setChannels(getChannelRows(channelSearch));
       if (force) setGuildPickerOpen(true);
       setMessage(force ? "Force mode selected. Choose a server and one or more channels, then scan." : "Loaded mode selected. Choose a loaded channel, then scan.");
-      bump();
+      setTick(tick + 1);
     }
     function showLoadedCache() {
       setHidden(false);
