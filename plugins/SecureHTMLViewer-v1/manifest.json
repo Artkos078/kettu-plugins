@@ -1,0 +1,16 @@
+{
+  "name": "Secure HTML Viewer",
+  "description": "Open local HTML safely, strip active content, apply readable formatting, search text, and export a sanitized copy.",
+  "authors": [
+    {
+      "name": "Artkos078",
+      "id": "0"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "DocumentIcon"
+  },
+  "hash": "secure-html-viewer-1.0.0",
+  "version": "1.0.0"
+}
