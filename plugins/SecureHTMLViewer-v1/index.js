@@ -45,8 +45,7 @@
 
   function getPicker() {
     var picker = findByProps("pickSingle", "isCancel");
-    if (!picker || typeof picker.pickSingle !== "function") throw new Error("Kettu's document picker was not found.");
-    return picker;
+    return picker && typeof picker.pickSingle === "function" ? picker : null;
   }
 
   function getFileManager() {
@@ -144,6 +143,7 @@
 
   async function pickHtml() {
     var picker = getPicker(), result;
+    if (!picker) throw new Error("This Kettu build does not include a document picker. Use Paste HTML or Load from Clipboard below.");
     try {
       result = await picker.pickSingle({ type: ["text/html", "public.html"], copyTo: "cachesDirectory" });
     } catch (e) {
@@ -157,9 +157,23 @@
     if (!uri) throw new Error("The picker did not return a readable file path.");
     var raw = await getFileManager().readFile(uri, "utf8");
     if (String(raw).length > 5 * 1024 * 1024) throw new Error("This file is over the 5 MB safety limit.");
+    return loadHtmlText(raw, name);
+  }
+
+  function loadHtmlText(raw, name) {
+    raw = String(raw || "");
+    if (!raw.trim()) throw new Error("No HTML text was provided.");
+    if (raw.length > 5 * 1024 * 1024) throw new Error("This HTML is over the 5 MB safety limit.");
     var sanitized = sanitizeHtml(raw, storage.allowRemoteImages === true);
-    current = { name: name, raw: String(raw), clean: sanitized.html, title: sanitized.title, blocked: sanitized.blocked };
+    current = { name: String(name || "pasted-document.html"), raw: raw, clean: sanitized.html, title: sanitized.title, blocked: sanitized.blocked };
     return current;
+  }
+
+  async function readClipboardHtml() {
+    var clipboard = RN.Clipboard || findByProps("getString", "setString") || findByProps("getString");
+    if (!clipboard || typeof clipboard.getString !== "function") throw new Error("Clipboard reading is unavailable on this Kettu build. Paste into the box instead.");
+    var text = await clipboard.getString();
+    return loadHtmlText(text, "clipboard.html");
   }
 
   async function saveFormatted() {
@@ -181,8 +195,10 @@
     var tickState = React.useState(0), tick = tickState[0], setTick = tickState[1];
     var statusState = React.useState("Choose a local .html or .htm file."), status = statusState[0], setStatus = statusState[1];
     var searchState = React.useState(""), search = searchState[0], setSearch = searchState[1];
+    var pasteState = React.useState(""), pastedHtml = pasteState[0], setPastedHtml = pasteState[1];
     var busyState = React.useState(false), busy = busyState[0], setBusy = busyState[1];
     var WebView = getWebView();
+    var pickerAvailable = !!getPicker();
     function bump() { setTick(tick + 1); }
     function choice(label, active, action) {
       return React.createElement(Pressable, { onPress: action, style: { paddingVertical: 9, paddingHorizontal: 11, marginRight: 7, marginTop: 7, borderRadius: 8, backgroundColor: active ? "#5865f2" : "#2b2b2b" } }, React.createElement(Text, { style: { color: "white", fontWeight: active ? "800" : "500" } }, label));
@@ -197,12 +213,32 @@
       } catch (e) { setStatus(e && e.message ? e.message : String(e)); }
       setBusy(false);
     }
+    async function openClipboard() {
+      if (busy) return;
+      setBusy(true); setStatus("Reading and sanitizing clipboard...");
+      try {
+        var result = await readClipboardHtml();
+        setStatus("Opened HTML from clipboard. Blocked or stripped " + result.blocked + " unsafe/unsupported item(s).");
+        setSearch(""); bump(); toast("Safe HTML preview ready");
+      } catch (e) { setStatus(e && e.message ? e.message : String(e)); }
+      setBusy(false);
+    }
+    function openPasted() {
+      try {
+        var result = loadHtmlText(pastedHtml, "pasted-document.html");
+        setStatus("Opened pasted HTML. Blocked or stripped " + result.blocked + " unsafe/unsupported item(s).");
+        setSearch(""); bump(); toast("Safe HTML preview ready");
+      } catch (e) { setStatus(e && e.message ? e.message : String(e)); }
+    }
     var matches = countMatches(plainText(current.clean), search);
     var preview = buildDocument();
     return React.createElement(ScrollView, { style: { padding: 16 }, keyboardShouldPersistTaps: "handled" },
-      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Secure HTML Viewer 1.0.0"),
+      React.createElement(Text, { style: { color: "white", fontSize: 24, fontWeight: "900" } }, "Secure HTML Viewer 1.0.1"),
       React.createElement(Text, { style: { color: "#aaa", marginTop: 7, lineHeight: 18 } }, "Opens local HTML only. Scripts, forms, embedded frames, page styles, dangerous attributes, and automatic navigation are blocked."),
-      React.createElement(Pressable, { disabled: busy, onPress: openFile, style: { marginTop: 15, padding: 13, borderRadius: 8, backgroundColor: busy ? "#444" : "#5865f2", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, busy ? "Opening..." : "Choose HTML from Files")),
+      pickerAvailable ? React.createElement(Pressable, { disabled: busy, onPress: openFile, style: { marginTop: 15, padding: 13, borderRadius: 8, backgroundColor: busy ? "#444" : "#5865f2", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "800" } }, busy ? "Opening..." : "Choose HTML from Files")) : React.createElement(Text, { style: { color: "#ffb86b", marginTop: 13, lineHeight: 18 } }, "Your Kettu build has no document picker. Open the HTML in a text editor, copy its contents, then use one of the options below."),
+      React.createElement(Pressable, { disabled: busy, onPress: openClipboard, style: { marginTop: 10, padding: 12, borderRadius: 8, backgroundColor: busy ? "#444" : "#323238", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "700" } }, "Load HTML from Clipboard")),
+      TextInput ? React.createElement(TextInput, { multiline: true, placeholder: "Or paste HTML source here…", placeholderTextColor: "#777", value: pastedHtml, onChangeText: setPastedHtml, autoCapitalize: "none", autoCorrect: false, style: { color: "white", minHeight: 110, textAlignVertical: "top", borderColor: "#444", borderWidth: 1, borderRadius: 8, padding: 10, marginTop: 10 } }) : null,
+      TextInput ? React.createElement(Pressable, { disabled: busy || !pastedHtml.trim(), onPress: openPasted, style: { marginTop: 8, padding: 12, borderRadius: 8, backgroundColor: pastedHtml.trim() ? "#5865f2" : "#444", alignItems: "center" } }, React.createElement(Text, { style: { color: "white", fontWeight: "700" } }, "Preview Pasted HTML")) : null,
       React.createElement(Text, { style: { color: status.indexOf("Opened ") === 0 ? "#6fdc8c" : "#ffb86b", marginTop: 11, lineHeight: 18 } }, status),
       React.createElement(Text, { style: { color: "#bbb", fontWeight: "700", marginTop: 16 } }, "Theme"),
       React.createElement(View, { style: { flexDirection: "row", flexWrap: "wrap" } },
