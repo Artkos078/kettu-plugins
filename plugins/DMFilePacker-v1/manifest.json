@@ -1,0 +1,16 @@
+{
+  "name": "DM File Packer",
+  "description": "Pack DM attachments and shared URLs into ZIP parts; unpack locally. No message text saved. 16 MiB/file limit.",
+  "authors": [
+    {
+      "name": "Artkos078",
+      "id": "0"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "DocumentIcon"
+  },
+  "hash": "dm-file-packer-1.0.0",
+  "version": "1.0.0"
+}
