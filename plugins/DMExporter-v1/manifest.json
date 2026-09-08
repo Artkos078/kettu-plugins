@@ -1,0 +1,17 @@
+{
+  "id": "kettu.dm-exporter",
+  "name": "DM Exporter",
+  "version": "1.0.0",
+  "description": "Exports the current personal or group DM to readable HTML or full JSON using the signed-in Kettu session, with no token handling.",
+  "authors": [
+    {
+      "name": "Artkos078"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "ic_download_24px"
+  },
+  "hash": "dm-exporter-v1.0.0-safe-session-html-json",
+  "license": "MIT"
+}
