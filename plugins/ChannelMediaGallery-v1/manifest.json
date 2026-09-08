@@ -1,6 +1,6 @@
 {
   "name": "Channel Media Gallery v1",
-  "description": "Keeps channel images, videos, GIFs, and embeds in a filtered in-app gallery, with server force loading and cached results.",
+  "description": "Hidden-by-default loaded and force media gallery with multi-channel controls and restart-persistent cache for The Lounge.",
   "authors": [
     {
       "name": "Artkos078"
@@ -10,6 +10,6 @@
   "vendetta": {
     "icon": "ic_image_24px"
   },
-  "hash": "channel-media-gallery-v1.1.40-multi-force-select-clean-config",
-  "version": "1.1.40"
+  "hash": "channel-media-gallery-v1.2.0-lounge-persistent-hidden-source-choices",
+  "version": "1.2.0"
 }
