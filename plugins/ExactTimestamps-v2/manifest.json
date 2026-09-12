@@ -1,0 +1,9 @@
+{
+  "name": "Exact Timestamps v2",
+  "description": "Makes inline Discord timestamps precise to the second, with exact/relative local or UTC formats and message-time options.",
+  "authors": [{"name":"Artkos078"}],
+  "main": "index.js",
+  "vendetta": {"icon":"clock"},
+  "hash": "kettu-exact-timestamps-v2.0.0-inline-parser-kettu-143-new-source",
+  "version": "2.0.0"
+}
