@@ -21,7 +21,8 @@ This is a personal/community plugin repository and is not an official Kettu proj
 | Plugin | What it does | Version | Install URL |
 | --- | --- | ---: | --- |
 | **Kettu Media Gestures** | Adds double-tap rewind/forward inside Kettu's normal Discord media viewer. Does not use the native iOS player. | 3.2.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/media/` |
-| **PrivateChats** | Locally hide and lock selected DMs and servers with passcode protection and auto-lock behavior. | 0.9.2 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
+| **PrivateChats** | Locally hide and lock selected DMs and servers with passcode protection and auto-lock behavior. | 0.9.3 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
+| **HumanizeGPT** | Rewrites `/humanize` messages with OpenAI and sends the natural version to the current chat. | 1.0.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/HumanizeGPT/` |
 
 ## Installing a plugin
 
@@ -80,6 +81,16 @@ Install:
 https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/media/
 ```
 
+## HumanizeGPT
+
+HumanizeGPT intercepts `/humanize`, `/humanise`, or `/hgpt` messages, asks OpenAI to rewrite the supplied text, and posts only the rewritten result. Add an OpenAI API key in the plugin settings; the key remains in Kettu's local plugin storage.
+
+Install:
+
+```text
+https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/HumanizeGPT/
+```
+
 ## PrivateChats
 
 PrivateChats is intended for local privacy inside Kettu. Current features include protected DMs/servers, passcode locking, auto-lock behavior, route blocking, and context-menu protection.
@@ -109,6 +120,7 @@ Disable and re-enable the plugin or reload Kettu. If an updated plugin is still 
 
 ```text
 kettu-plugins/
+├── HumanizeGPT/              # OpenAI-powered message rewriting
 ├── media/                    # Current media gestures plugin
 ├── plugins/
 │   ├── PrivateChats-v9/
