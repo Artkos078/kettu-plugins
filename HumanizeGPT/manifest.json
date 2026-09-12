@@ -1,0 +1,9 @@
+{
+  "name": "HumanizeGPT",
+  "description": "Rewrite /humanize messages with OpenAI and send the natural version to the current Discord chat.",
+  "authors": [{"name":"Artkos078"}],
+  "main": "index.js",
+  "vendetta": {"icon":"ic_message_edit_24px"},
+  "hash": "humanize-gpt-v1.0.0-prefix-send-settings",
+  "version": "1.0.0"
+}
