@@ -1,4 +1,4 @@
-# Plugin Catalog
+| **Exact Timestamps v2** | Recommended | Makes inline Discord timestamp pills precise to the second with Smart, exact, relative, local, and UTC formats. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ExactTimestamps-v2` |n Catalog
 
 This folder contains the retained Kettu plugin sources. For normal installs, use the raw GitHub folder URLs below.
 
