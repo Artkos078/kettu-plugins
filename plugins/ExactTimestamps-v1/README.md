@@ -2,8 +2,10 @@
 
 Displays precise Discord message creation times in Kettu.
 
-Version 1.0.1 supports both classic Vendetta-compatible Kettu builds and the
-newer Revenge message-row hook contract.
+Version 1.1.0 directly patches Kettu's inline Discord timestamp parser. Smart
+mode shows relative timestamp pills down to seconds and absolute pills with
+seconds and the UTC offset. Discord inline timestamps only contain whole Unix
+seconds, so the plugin does not invent nonexistent milliseconds for them.
 
 Features:
 
