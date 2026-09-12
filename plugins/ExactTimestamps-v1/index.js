@@ -16,7 +16,7 @@ var unpatches=[];
 var timers=[];
 var idsByTime={};
 var idTimeOrder=[];
-var status={row:false,component:false,copy:false};
+var status={inline:false,row:false,component:false,copy:false};
 var DISCORD_EPOCH=1420070400000;
 
 if(storage.mode==null)storage.mode='exact';
@@ -26,6 +26,7 @@ if(storage.seconds==null)storage.seconds=true;
 if(storage.milliseconds==null)storage.milliseconds=true;
 if(storage.separateMessages==null)storage.separateMessages=false;
 if(storage.copyMode==null)storage.copyMode='both';
+if(storage.inlineMode==null)storage.inlineMode='smart';
 
 function toast(message){
   try{
@@ -97,7 +98,7 @@ function zoneSuffix(date,utc){
   return'UTC'+sign+pad(Math.floor(abs/60))+':'+pad(abs%60);
 }
 
-function exactTime(value,id,forceZone){
+function exactTime(value,id,forceZone,wholeSeconds){
   var date=dateFor(value,id);
   var utc=(forceZone||storage.zone)==='utc';
   var year=utc?date.getUTCFullYear():date.getFullYear();
@@ -115,7 +116,7 @@ function exactTime(value,id,forceZone){
   }
   var time=(storage.clock24===false?String(shownHour):pad(shownHour))+':'+pad(minute);
   if(storage.seconds!==false)time+=':'+pad(second);
-  if(storage.milliseconds!==false)time+='.'+pad(ms,3);
+  if(storage.milliseconds!==false&&!wholeSeconds)time+='.'+pad(ms,3);
   return year+'-'+pad(month)+'-'+pad(day)+' '+time+suffix+' '+zoneSuffix(date,utc);
 }
 
@@ -132,6 +133,55 @@ function relativeTime(value,id){
   else{number=Math.round(amount/31557600000);unit='year';}
   if(number!==1)unit+='s';
   return future?'in '+number+' '+unit:number+' '+unit+' ago';
+}
+
+function preciseRelative(date){
+  var delta=date.getTime()-Date.now();
+  var future=delta>0;
+  var total=Math.max(0,Math.floor(Math.abs(delta)/1000));
+  var days=Math.floor(total/86400);total-=days*86400;
+  var hours=Math.floor(total/3600);total-=hours*3600;
+  var minutes=Math.floor(total/60);var seconds=total-minutes*60;
+  var parts=[];
+  if(days)parts.push(days+'d');
+  if(hours||days)parts.push(hours+'h');
+  if(minutes||hours||days)parts.push(minutes+'m');
+  parts.push(seconds+'s');
+  return future?'in '+parts.join(' '):parts.join(' ')+' ago';
+}
+
+function inlineTimestamp(seconds,style){
+  var numeric=Number(seconds);
+  if(!Number.isFinite(numeric))return null;
+  var date=new Date(numeric*1000);
+  if(!Number.isFinite(date.getTime()))return null;
+  var exact=exactTime(date,'',undefined,true);
+  var relative=preciseRelative(date);
+  var mode=storage.inlineMode||'smart';
+  if(mode==='exact')return exact;
+  if(mode==='relative')return relative;
+  if(mode==='both')return relative+' • '+exact;
+  return String(style||'').toUpperCase()==='R'?relative:exact;
+}
+
+function patchInlineTimestamps(){
+  if(status.inline||!patcher.after)return false;
+  var parser=null;
+  try{parser=findByProps('parseTimestamp','unparseTimestamp');}catch(e){}
+  if(!parser||typeof parser.parseTimestamp!=='function')return false;
+  try{
+    var unpatch=patcher.after('parseTimestamp',parser,function(args,result){
+      try{
+        var precise=inlineTimestamp(args&&args[0],args&&args[1]);
+        if(!precise)return result;
+        if(result&&typeof result==='object')return Object.assign({},result,{formatted:precise,full:exactTime(new Date(Number(args[0])*1000),'',undefined,true)});
+        return precise;
+      }catch(e){return result;}
+    });
+    if(typeof unpatch==='function')unpatches.push(unpatch);
+    status.inline=true;
+    return true;
+  }catch(e){return false;}
 }
 
 function renderTime(value,id){
@@ -321,6 +371,7 @@ function patchTimestampComponent(module){
 }
 
 function tryPatches(){
+  if(!status.inline)patchInlineTimestamps();
   if(!status.row)patchRowsNext();
   if(!status.row){
     var row=null;try{row=findByName('RowManager',false);}catch(e){}
@@ -330,7 +381,7 @@ function tryPatches(){
     var component=timestampModule();
     if(component)patchTimestampComponent(component);
   }
-  return status.row||status.component;
+  return status.inline||status.row||status.component;
 }
 
 function button(label,selected,onPress){
@@ -349,7 +400,8 @@ function Settings(){
   return React.createElement(ScrollView,{style:{padding:16}},
     React.createElement(Text,{style:{color:'white',fontWeight:'900',fontSize:24}},'Exact Timestamps'),
     React.createElement(Text,{style:{color:'#aaa',marginTop:7}},'Precise Discord message times. Long-press a timestamp to copy it.'),
-    React.createElement(Text,{style:{color:status.row?'#6fdc8c':'#ffb86b',marginTop:10}},'Message row hook: '+(status.row?'ready':'waiting for Discord')),
+    React.createElement(Text,{style:{color:status.inline?'#6fdc8c':'#ffb86b',marginTop:10}},'Inline timestamp hook: '+(status.inline?'ready':'not found')),
+    React.createElement(Text,{style:{color:'#777',marginTop:4}},'Message header hook: '+(status.row?'ready':'not available in this Discord build')),
     React.createElement(View,{style:{backgroundColor:'#1e1f22',borderRadius:11,padding:12,marginTop:14}},
       React.createElement(Text,{style:{color:'#b5bac1',fontSize:12}},'PREVIEW'),
       React.createElement(Text,{style:{color:'white',fontWeight:'700',marginTop:5}},renderTime(new Date(),'123456789012345678'))),
@@ -358,6 +410,12 @@ function Settings(){
       button('Exact',storage.mode==='exact',function(){set('mode','exact');}),
       button('Relative',storage.mode==='relative',function(){set('mode','relative');}),
       button('Both',storage.mode==='relativeExact',function(){set('mode','relativeExact');})),
+    title('Inline timestamps in messages'),
+    React.createElement(View,{style:{flexDirection:'row',flexWrap:'wrap'}},
+      button('Smart',storage.inlineMode==='smart',function(){set('inlineMode','smart');}),
+      button('Exact',storage.inlineMode==='exact',function(){set('inlineMode','exact');}),
+      button('Relative',storage.inlineMode==='relative',function(){set('inlineMode','relative');}),
+      button('Both',storage.inlineMode==='both',function(){set('inlineMode','both');})),
     title('Time zone'),
     React.createElement(View,{style:{flexDirection:'row',flexWrap:'wrap'}},
       button('Local',storage.zone==='local',function(){set('zone','local');}),
@@ -381,7 +439,7 @@ function onLoad(){
   var timer=setInterval(function(){
     attempts++;
     tryPatches();
-    if((status.row&&status.component)||attempts>=30){clearInterval(timer);}
+    if(status.inline||attempts>=30){clearInterval(timer);}
   },1000);
   timers.push(timer);
 }
@@ -389,7 +447,7 @@ function onLoad(){
 function onUnload(){
   while(timers.length)try{clearInterval(timers.pop());}catch(e){}
   while(unpatches.length)try{unpatches.pop()();}catch(e){}
-  status.row=false;status.component=false;
+  status.inline=false;status.row=false;status.component=false;
 }
 
 return{onLoad:onLoad,onUnload:onUnload,settings:Settings};
