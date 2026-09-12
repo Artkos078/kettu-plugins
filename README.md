@@ -1,4 +1,4 @@
-<div align="center">
+| **Exact Timestamps v2** | Makes inline Discord timestamp pills precise to the second with Smart, exact, relative, local, and UTC formats. | 2.0.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ExactTimestamps-v2` |n="center">
 
 # Kettu Plugins
 
@@ -124,7 +124,7 @@ kettu-plugins/
 ├── HumanizeGPT/              # OpenAI-powered message rewriting
 ├── media/                    # Current media gestures plugin
 ├── plugins/
-│   ├── ExactTimestamps-v1/    # Precise message timestamps
+│   ├── ExactTimestamps-v2/    # Precise inline timestamps
 │   ├── PrivateChats-v9/
 │   ├── NativeVideoPlayer-v2/ # Older/experimental media implementation
 │   └── VideoSkipGestures-v3/ # Older media gesture implementation
