@@ -1,0 +1,9 @@
+{
+  "name": "Exact Timestamps",
+  "description": "Shows precise message times with seconds or milliseconds, local/UTC and relative formats, plus long-press copying.",
+  "authors": [{"name":"Artkos078"}],
+  "main": "index.js",
+  "vendetta": {"icon":"clock"},
+  "hash": "kettu-exact-timestamps-v1.0.0-snowflake-ms-copy",
+  "version": "1.0.0"
+}
