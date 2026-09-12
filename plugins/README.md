@@ -5,6 +5,7 @@ This folder contains the retained Kettu plugin sources. For normal installs, use
 | Plugin | Status | Purpose | Install URL |
 | --- | --- | --- | --- |
 | **PrivateChats v9** | Recommended | Locally hide/lock protected DMs and servers with passcode and auto-lock behavior. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
+| **Exact Timestamps v1** | Recommended | Shows precise local/UTC message times, relative time, milliseconds, and long-press copying. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ExactTimestamps-v1/` |
 | **Channel Media Gallery v1** | Experimental | Shows the latest images/videos from the current channel in a 20-30 item gallery. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ChannelMediaGallery-v1/` |
 | **Bypass Size Limit v1** | Experimental | Uploads large mobile files to Catbox or Litterbox and sends the link in the current chat or DM. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/BypassSizeLimit-v1/` |
 | **NativeVideoPlayer v2** | Legacy / experimental | Older video-opening implementation retained for testing/reference. | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/NativeVideoPlayer-v2/` |
