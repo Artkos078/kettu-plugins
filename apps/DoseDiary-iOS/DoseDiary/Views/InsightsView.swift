@@ -30,10 +30,15 @@ struct InsightsView: View {
             names[key] = names[key] ?? entry.substance
             counts[key, default: 0] += 1
         }
-        return counts.map { SubstanceDoseCount(name: names[$0.key] ?? $0.key, count: $0.value) }
-            .sorted { $0.count == $1.count ? $0.name < $1.name : $0.count > $1.count }
-            .prefix(8)
-            .map { $0 }
+        let allCounts: [SubstanceDoseCount] = counts.map { pair in
+            let displayName = names[pair.key] ?? pair.key
+            return SubstanceDoseCount(name: displayName, count: pair.value)
+        }
+        let sortedCounts = allCounts.sorted { left, right in
+            if left.count == right.count { return left.name < right.name }
+            return left.count > right.count
+        }
+        return Array(sortedCounts.prefix(8))
     }
 
     private var activeDays: Int {
