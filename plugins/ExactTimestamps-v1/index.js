@@ -2,6 +2,7 @@
 'use strict';
 
 var V=(typeof vendetta!=='undefined'&&vendetta)||globalThis.vendetta||globalThis.revenge||globalThis.bunny||{};
+var RevengeNext=globalThis.revenge||null;
 var metro=V.metro||{};
 var patcher=V.patcher||{};
 var common=metro.common||{};
@@ -192,8 +193,10 @@ function patchRows(RowManager){
         var id=String(message.id||'');
         rememberId(id,message.timestamp);
         if(storage.separateMessages)row.isFirst=true;
-        if(message.timestamp!=null)message.__exactTimestamp=wrapTimestamp(message.timestamp,id);
-        if(message.editedTimestamp!=null)message.__exactEditedTimestamp=wrapTimestamp(message.editedTimestamp,id);
+        // Current Kettu/Revenge message rows expect a rendered string. Older
+        // builds also accept it, so avoid Moment/Date proxies on this path.
+        if(message.timestamp!=null)message.__exactTimestamp=renderTime(message.timestamp,id);
+        if(message.editedTimestamp!=null)message.__exactEditedTimestamp=renderTime(message.editedTimestamp,id);
       }catch(e){}
     });
     var after=patcher.after('generate',RowManager.prototype,function(args,result){
@@ -208,6 +211,52 @@ function patchRows(RowManager){
     if(typeof before==='function')unpatches.push(before);
     if(typeof after==='function')unpatches.push(after);
     status.row=true;
+    return true;
+  }catch(e){return false;}
+}
+
+function patchRowsNext(){
+  if(status.row||!RevengeNext)return false;
+  var finders=RevengeNext.modules&&RevengeNext.modules.finders;
+  var nextPatcher=RevengeNext.patcher;
+  if(!finders||typeof finders.getModules!=='function'||typeof finders.withName!=='function'||!nextPatcher)return false;
+  try{
+    var rowUnpatchBefore=null,rowUnpatchInstead=null;
+    var unsubscribe=finders.getModules(finders.withName('RowManager'),function(RowManager){
+      if(status.row||!RowManager||!RowManager.prototype||typeof RowManager.prototype.generate!=='function')return;
+      try{
+        rowUnpatchBefore=nextPatcher.before(RowManager.prototype,'generate',function(args){
+          try{
+            var row=args&&args[0];
+            if(!row||row.rowType!==1||!row.message)return args;
+            var message=row.message;
+            var id=String(message.id||'');
+            rememberId(id,message.timestamp);
+            if(storage.separateMessages)row.isFirst=true;
+            if(message.timestamp!=null)message.__exactTimestamp=renderTime(message.timestamp,id);
+            if(message.editedTimestamp!=null)message.__exactEditedTimestamp=renderTime(message.editedTimestamp,id);
+          }catch(e){try{console.log('[ExactTimestamps] row hook',e);}catch(_) {}}
+          return args;
+        });
+        rowUnpatchInstead=nextPatcher.instead(RowManager.prototype,'generate',function(args,original){
+          if(typeof original!=='function')return undefined;
+          var result=Reflect.apply(original,this,args);
+          try{
+            var row=args&&args[0],message=row&&row.message;
+            if(!message||!result||!result.message)return result;
+            if(message.__exactTimestamp)result.message.timestamp=message.__exactTimestamp;
+            if(message.__exactEditedTimestamp)result.message.editedTimestamp=message.__exactEditedTimestamp;
+          }catch(e){try{console.log('[ExactTimestamps] result hook',e);}catch(_) {}}
+          return result;
+        });
+        status.row=true;
+      }catch(e){try{console.log('[ExactTimestamps] next patch failed',e);}catch(_) {}}
+    });
+    unpatches.push(function(){
+      try{if(typeof unsubscribe==='function')unsubscribe();}catch(e){}
+      try{if(typeof rowUnpatchBefore==='function')rowUnpatchBefore();}catch(e){}
+      try{if(typeof rowUnpatchInstead==='function')rowUnpatchInstead();}catch(e){}
+    });
     return true;
   }catch(e){return false;}
 }
@@ -272,6 +321,7 @@ function patchTimestampComponent(module){
 }
 
 function tryPatches(){
+  if(!status.row)patchRowsNext();
   if(!status.row){
     var row=null;try{row=findByName('RowManager',false);}catch(e){}
     if(row)patchRows(row);
@@ -299,7 +349,7 @@ function Settings(){
   return React.createElement(ScrollView,{style:{padding:16}},
     React.createElement(Text,{style:{color:'white',fontWeight:'900',fontSize:24}},'Exact Timestamps'),
     React.createElement(Text,{style:{color:'#aaa',marginTop:7}},'Precise Discord message times. Long-press a timestamp to copy it.'),
-    React.createElement(Text,{style:{color:status.row||status.component?'#6fdc8c':'#ffb86b',marginTop:10}},'Message hook: '+(status.row||status.component?'ready':'waiting for Discord')),
+    React.createElement(Text,{style:{color:status.row?'#6fdc8c':'#ffb86b',marginTop:10}},'Message row hook: '+(status.row?'ready':'waiting for Discord')),
     React.createElement(View,{style:{backgroundColor:'#1e1f22',borderRadius:11,padding:12,marginTop:14}},
       React.createElement(Text,{style:{color:'#b5bac1',fontSize:12}},'PREVIEW'),
       React.createElement(Text,{style:{color:'white',fontWeight:'700',marginTop:5}},renderTime(new Date(),'123456789012345678'))),
