@@ -1,0 +1,17 @@
+{
+  "id": "kettu.tripbot-dose-export",
+  "name": "TripBot Dose Export",
+  "version": "1.0.0",
+  "description": "Exports dose entries from the open TripBot DM as a DoseDiary-ready JSON file.",
+  "authors": [
+    {
+      "name": "Artkos078"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "ic_download_24px"
+  },
+  "hash": "tripbot-dose-export-v1.0.0-dose-diary-json",
+  "license": "MIT"
+}
