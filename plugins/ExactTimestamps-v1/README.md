@@ -2,6 +2,9 @@
 
 Displays precise Discord message creation times in Kettu.
 
+Version 1.0.1 supports both classic Vendetta-compatible Kettu builds and the
+newer Revenge message-row hook contract.
+
 Features:
 
 - exact local or UTC timestamps;
