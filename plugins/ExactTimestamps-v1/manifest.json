@@ -4,6 +4,6 @@
   "authors": [{"name":"Artkos078"}],
   "main": "index.js",
   "vendetta": {"icon":"clock"},
-  "hash": "kettu-exact-timestamps-v1.0.0-snowflake-ms-copy",
-  "version": "1.0.0"
+  "hash": "kettu-exact-timestamps-v1.0.1-dual-rowmanager-string-fix",
+  "version": "1.0.1"
 }
