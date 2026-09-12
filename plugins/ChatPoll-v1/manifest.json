@@ -1,9 +1,14 @@
 {
-  "name": "Chat Poll v1",
-  "description": "Create compact polls directly in chat with reactable emoji options.",
-  "authors": [{"name":"Artkos078"}],
+  "name": "Poll Command",
+  "description": "Adds a /poll slash command with clickable reaction choices in every chat.",
+  "authors": [
+    {
+      "name": "Artkos078"
+    }
+  ],
   "main": "index.js",
-  "vendetta": {"icon":"poll"},
-  "hash": "kettu-chat-poll-v1.0.0",
-  "version": "1.0.0"
+  "hash": "1.0.0-kettu-1.4.3",
+  "vendetta": {
+    "icon": "PollsIcon"
+  }
 }

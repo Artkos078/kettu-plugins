@@ -1,124 +1,127 @@
-// Chat Poll v1 for Kettu
-// Usage: /poll Question | Option 1 | Option 2 | Option 3
-// Sends a normal Discord chat message and automatically reacts with an emoji for each option.
+(() => {
+  "use strict";
 
-(function () {
-  const PLUGIN = "Chat Poll v1";
-  const EMOJIS = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"];
-  let unpatch = null;
+  const { findByProps, findByStoreName } = vendetta.metro;
+  const messageActions = findByProps("sendMessage", "editMessage") || findByProps("sendMessage");
+  const reactionActions = findByProps("addReaction", "removeReaction") || findByProps("addReaction");
+  const messageStore = findByStoreName?.("MessageStore");
 
-  function findByProps(...props) {
-    try {
-      const metro = globalThis.modules || globalThis.__vendetta?.metro || globalThis.vendetta?.metro;
-      if (metro?.findByProps) return metro.findByProps(...props);
-    } catch (_) {}
-    try {
-      const req = globalThis.__r;
-      if (typeof req === "function" && req.getModules) {
-        const mods = req.getModules();
-        for (const k in mods) {
-          try {
-            const m = req(k)?.exports;
-            const candidates = [m, m?.default];
-            for (const c of candidates) if (c && props.every(p => p in c)) return c;
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
+  const LETTERS = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯"];
+  let unregisterCommand;
+
+  const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+  function optionValue(options, index) {
+    return options?.[index]?.value == null ? "" : String(options[index].value).trim();
+  }
+
+  function parseChoices(raw) {
+    const choices = (raw || "Yes, No")
+      .split(/[,\n|]/)
+      .map((choice) => choice.trim())
+      .filter(Boolean)
+      .slice(0, LETTERS.length);
+
+    return choices.length >= 2 ? choices : ["Yes", "No"];
+  }
+
+  function messageArray(collection) {
+    if (!collection) return [];
+    if (Array.isArray(collection)) return collection;
+    if (Array.isArray(collection._array)) return collection._array;
+    if (typeof collection.toArray === "function") return collection.toArray();
+    if (typeof collection.values === "function") return Array.from(collection.values());
+    return [];
+  }
+
+  async function resolveMessageId(channelId, nonce, content, response) {
+    const immediate = response?.id || response?.message?.id || response?.body?.id || response?.body?.message?.id;
+    if (immediate) return immediate;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await wait(250);
+      const messages = messageArray(messageStore?.getMessages?.(channelId));
+      const match = [...messages].reverse().find(
+        (message) => String(message?.nonce || "") === String(nonce) || message?.content === content,
+      );
+      if (match?.id) return match.id;
+    }
+
     return null;
   }
 
-  function toast(msg) {
-    try {
-      const t = findByProps("showToast");
-      if (t?.showToast) return t.showToast(msg);
-    } catch (_) {}
-    console.log(`[${PLUGIN}] ${msg}`);
-  }
-
-  function getChannelId(args) {
-    return args?.channelId || args?.channel_id || args?.channel?.id ||
-      findByProps("getLastSelectedChannelId")?.getLastSelectedChannelId?.();
-  }
-
   async function addReaction(channelId, messageId, emoji) {
-    const reactions = findByProps("addReaction");
-    if (reactions?.addReaction) {
-      try { return await reactions.addReaction(channelId, messageId, {name: emoji}); } catch (_) {}
-      try { return await reactions.addReaction(channelId, messageId, emoji); } catch (_) {}
-    }
-    const api = findByProps("post", "get", "put");
-    if (api?.put) {
-      const enc = encodeURIComponent(emoji);
-      try { return await api.put({url:`/channels/${channelId}/messages/${messageId}/reactions/${enc}/@me`}); } catch (_) {}
+    if (!reactionActions?.addReaction) throw new Error("Discord reaction actions were not found");
+    try {
+      await reactionActions.addReaction(channelId, messageId, { name: emoji });
+    } catch (_) {
+      await reactionActions.addReaction(channelId, messageId, emoji);
     }
   }
 
-  function parsePoll(text) {
-    const raw = String(text || "").trim();
-    if (!/^\/poll(?:\s|$)/i.test(raw)) return null;
-    const body = raw.replace(/^\/poll\s*/i, "");
-    const parts = body.split("|").map(x => x.trim()).filter(Boolean);
-    if (parts.length < 3) return {error:"Use: /poll Question | Option 1 | Option 2"};
-    const question = parts.shift();
-    const options = parts.slice(0, 10);
-    return {question, options};
-  }
+  const pollCommand = {
+    name: "poll",
+    displayName: "poll",
+    description: "Create a reaction poll in this chat",
+    displayDescription: "Create a reaction poll in this chat",
+    options: [
+      {
+        name: "question",
+        displayName: "question",
+        description: "The question to ask",
+        displayDescription: "The question to ask",
+        type: 3,
+        required: true,
+      },
+      {
+        name: "choices",
+        displayName: "choices",
+        description: "Comma-separated choices (default: Yes, No; maximum: 10)",
+        displayDescription: "Comma-separated choices (default: Yes, No; maximum: 10)",
+        type: 3,
+        required: false,
+      },
+    ],
 
-  function formatPoll(p) {
-    const rows = p.options.map((x,i) => `${EMOJIS[i]}  ${x}`);
-    return `📊 **${p.question}**\n\n${rows.join("\n")}\n\n*React below to vote.*`;
-  }
+    async execute(options, context) {
+      const channelId = context?.channel?.id;
+      const question = optionValue(options, 0);
+      const choices = parseChoices(optionValue(options, 1));
 
-  function install() {
-    const sender = findByProps("sendMessage", "editMessage") || findByProps("sendMessage");
-    if (!sender?.sendMessage) {
-      toast("Chat Poll: sendMessage module not found");
-      return;
-    }
+      if (!channelId) return { content: "Poll failed: this chat has no channel ID." };
+      if (!question) return { content: "Poll failed: enter a question." };
+      if (!messageActions?.sendMessage) return { content: "Poll failed: Kettu could not find Discord's message sender." };
 
-    const original = sender.sendMessage;
-    let bypass = false;
+      const lines = choices.map((choice, index) => `${LETTERS[index]}  ${choice}`);
+      const content = [`📊 **${question.replace(/\*\*/g, "")}**`, "", ...lines, "", "React below to vote."].join("\n");
+      const nonce = (BigInt(Date.now() - 1420070400000) << 22n).toString();
 
-    sender.sendMessage = async function (...args) {
-      if (bypass) return original.apply(this, args);
-      const payloadIndex = args.findIndex(a => a && typeof a === "object" && typeof a.content === "string");
-      if (payloadIndex < 0) return original.apply(this, args);
-      const payload = args[payloadIndex];
-      const poll = parsePoll(payload.content);
-      if (!poll) return original.apply(this, args);
-      if (poll.error) { toast(poll.error); return; }
+      const response = await messageActions.sendMessage(channelId, { content }, undefined, { nonce });
+      const messageId = await resolveMessageId(channelId, nonce, content, response);
 
-      const channelId = getChannelId(args[0]) || (typeof args[0] === "string" ? args[0] : null);
-      const nextPayload = {...payload, content: formatPoll(poll)};
-      const nextArgs = args.slice();
-      nextArgs[payloadIndex] = nextPayload;
+      if (!messageId) {
+        vendetta.logger?.warn?.("Poll was sent, but its message ID could not be resolved for reactions.");
+        return;
+      }
 
-      bypass = true;
-      try {
-        const result = await original.apply(this, nextArgs);
-        const msg = result?.message || result?.body || result;
-        const messageId = msg?.id || msg?.message?.id;
-        const cid = channelId || msg?.channel_id;
-        if (cid && messageId) {
-          for (let i=0;i<poll.options.length;i++) {
-            try { await addReaction(cid, messageId, EMOJIS[i]); } catch (_) {}
-          }
-        } else {
-          toast("Poll sent. Couldn't auto-add reactions on this Kettu build.");
+      for (let index = 0; index < choices.length; index++) {
+        try {
+          await addReaction(channelId, messageId, LETTERS[index]);
+        } catch (error) {
+          vendetta.logger?.error?.("Failed to add poll reaction", error);
+          break;
         }
-        return result;
-      } finally { bypass = false; }
-    };
-
-    unpatch = () => { sender.sendMessage = original; };
-    toast("Chat Poll loaded — /poll Question | Yes | No");
-  }
-
-  module.exports = {
-    onLoad: install,
-    onUnload: () => { try { unpatch?.(); } catch (_) {} unpatch = null; },
-    start: install,
-    stop: () => { try { unpatch?.(); } catch (_) {} unpatch = null; }
+      }
+    },
   };
-})();
+
+  return {
+    onLoad() {
+      unregisterCommand = vendetta.commands.registerCommand(pollCommand);
+    },
+    onUnload() {
+      unregisterCommand?.();
+      unregisterCommand = undefined;
+    },
+  };
+})()
