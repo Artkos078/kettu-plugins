@@ -23,6 +23,7 @@ This is a personal/community plugin repository and is not an official Kettu proj
 | **Kettu Media Gestures** | Adds double-tap rewind/forward inside Kettu's normal Discord media viewer. Does not use the native iOS player. | 3.2.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/media/` |
 | **PrivateChats** | Locally hide and lock selected DMs and servers with passcode protection and auto-lock behavior. | 0.9.3 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/PrivateChats-v9/` |
 | **HumanizeGPT** | Rewrites `/humanize` messages with OpenAI and sends the natural version to the current chat. | 1.0.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/HumanizeGPT/` |
+| **Exact Timestamps** | Shows precise local/UTC message times with seconds or milliseconds, relative display, and long-press copying. | 1.0.0 | `https://raw.githubusercontent.com/Artkos078/kettu-plugins/main/plugins/ExactTimestamps-v1/` |
 
 ## Installing a plugin
 
@@ -123,6 +124,7 @@ kettu-plugins/
 ├── HumanizeGPT/              # OpenAI-powered message rewriting
 ├── media/                    # Current media gestures plugin
 ├── plugins/
+│   ├── ExactTimestamps-v1/    # Precise message timestamps
 │   ├── PrivateChats-v9/
 │   ├── NativeVideoPlayer-v2/ # Older/experimental media implementation
 │   └── VideoSkipGestures-v3/ # Older media gesture implementation
