@@ -45,6 +45,7 @@ struct AddDoseView: View {
             }
         }
         .navigationTitle("Log a Dose")
+        .easyKeyboardDismissal()
         .alert("Entry saved", isPresented: $saved) { Button("OK") {} }
     }
 
@@ -64,4 +65,3 @@ struct AddDoseView: View {
         saved = true
     }
 }
-

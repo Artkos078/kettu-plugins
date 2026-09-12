@@ -7,6 +7,8 @@ struct ContentView: View {
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
             NavigationStack { AddDoseView() }
                 .tabItem { Label("Add", systemImage: "plus.circle.fill") }
+            NavigationStack { InsightsView() }
+                .tabItem { Label("Insights", systemImage: "chart.bar.xaxis") }
             NavigationStack { ImportView() }
                 .tabItem { Label("Import", systemImage: "square.and.arrow.down") }
             NavigationStack { SettingsView() }
@@ -15,4 +17,3 @@ struct ContentView: View {
         .tint(.indigo)
     }
 }
-

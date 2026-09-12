@@ -1,6 +1,6 @@
 # Dose Diary for iOS
 
-A private, offline SwiftUI diary for recording substance or medication use. It stores dose history on the device and supports manual entries, TripBot text imports, duplicate review, Face ID/device-passcode locking, and JSON/CSV export.
+A private, offline SwiftUI diary for recording substance or medication use. It stores dose history on the device and supports manual entries, TripBot text imports, duplicate review, Face ID/device-passcode locking, frequency charts, substance breakdowns, easy keyboard dismissal, and JSON/CSV export.
 
 ## Privacy
 

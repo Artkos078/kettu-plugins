@@ -108,7 +108,7 @@ private struct EditDoseView: View {
             TextField("Notes", text: $entry.notes, axis: .vertical).lineLimit(3...8)
         }
         .navigationTitle("Edit Entry")
+        .easyKeyboardDismissal()
         .toolbar { Button("Done") { dismiss() } }
     }
 }
-

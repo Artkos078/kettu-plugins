@@ -16,8 +16,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.artkos078.dosediary
         PRODUCT_NAME: DoseDiary
-        MARKETING_VERSION: 1.0.0
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.1.0
+        CURRENT_PROJECT_VERSION: 2
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Dose Diary
         INFOPLIST_KEY_NSFaceIDUsageDescription: Face ID protects your private dose diary.
@@ -28,4 +28,3 @@ targets:
         CODE_SIGN_STYLE: Automatic
     scheme:
       testTargets: []
-

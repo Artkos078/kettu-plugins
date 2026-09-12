@@ -58,6 +58,7 @@ struct ImportView: View {
             }
         }
         .navigationTitle("Import")
+        .easyKeyboardDismissal()
         .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.plainText, .json]) { result in
             guard case .success(let url) = result else { return }
             let scoped = url.startAccessingSecurityScopedResource()
